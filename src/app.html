@@ -1,0 +1,1022 @@
+<title>Reloj de Ayuno</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Atkinson+Hyperlegible:wght@400;700&family=DM+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one column on phones with a bottom tab bar; on desktop a top bar and two-column views. The ring is the night sky of the fast; amber marks the eating window. */
+:root {
+  --bg: #eef1f6;
+  --surface: #ffffff;
+  --surface-2: #f5f7fb;
+  --ink: #141b2d;
+  --muted: #5b6478;
+  --line: #d9dee8;
+  --fast: #3346c9;
+  --fast-soft: #dce1fa;
+  --eat: #c46f14;
+  --eat-soft: #fbead6;
+  --ok: #1d7f53;
+  --ok-soft: #d8f0e4;
+  --danger: #b42318;
+  --shadow: 0 1px 2px rgba(20, 27, 45, .06), 0 8px 24px rgba(20, 27, 45, .06);
+  --f-display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --f-body: "Atkinson Hyperlegible", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --f-mono: "DM Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --r: 14px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0c111e; --surface: #151c2d; --surface-2: #1b2338; --ink: #e8ecf5; --muted: #9aa3b8; --line: #283150;
+    --fast: #8d9bff; --fast-soft: #252e5a; --eat: #f2a650; --eat-soft: #3a2a17; --ok: #52c78f; --ok-soft: #173a2a; --danger: #f97066;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.25);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0c111e; --surface: #151c2d; --surface-2: #1b2338; --ink: #e8ecf5; --muted: #9aa3b8; --line: #283150;
+  --fast: #8d9bff; --fast-soft: #252e5a; --eat: #f2a650; --eat-soft: #3a2a17; --ok: #52c78f; --ok-soft: #173a2a; --danger: #f97066;
+  --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.25);
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { background: var(--bg); color: var(--ink); }
+body { font-family: var(--f-body); font-size: 16px; line-height: 1.5; -webkit-tap-highlight-color: transparent; }
+button, input, select, textarea { font: inherit; color: inherit; }
+h1, h2, h3 { font-family: var(--f-display); line-height: 1.15; margin: 0; text-wrap: balance; }
+.num { font-family: var(--f-mono); font-variant-numeric: tabular-nums; }
+:focus-visible { outline: 2px solid var(--fast); outline-offset: 2px; border-radius: 6px; }
+
+/* top bar */
+.topbar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20; background: color-mix(in srgb, var(--bg) 88%, transparent); backdrop-filter: blur(10px); border-bottom: 1px solid var(--line); }
+.topbar-in { max-width: 1120px; margin: 0 auto; padding: 12px 16px; display: flex; align-items: center; gap: 16px; }
+.brand { display: flex; align-items: center; gap: 10px; font-family: var(--f-display); font-weight: 800; font-size: 1.15rem; letter-spacing: -.01em; }
+.brand-mark { width: 30px; height: 30px; flex: none; }
+.tabs { display: flex; gap: 4px; margin-left: auto; }
+.tab { border: 0; background: transparent; padding: 8px 14px; border-radius: 999px; cursor: pointer; color: var(--muted); font-weight: 700; display: flex; align-items: center; gap: 8px; }
+.tab svg { width: 20px; height: 20px; }
+.tab[aria-selected="true"] { background: var(--surface); color: var(--ink); box-shadow: var(--shadow); }
+.tab:hover { color: var(--ink); }
+
+main { max-width: 1120px; margin: 0 auto; padding: 20px 16px 110px; }
+.view[hidden] { display: none; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 20px; box-shadow: var(--shadow); min-width: 0; }
+.card h2 { font-size: 1.15rem; }
+.card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+.eyebrow { font-size: .75rem; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 700; }
+.muted { color: var(--muted); }
+.stack { display: flex; flex-direction: column; gap: 16px; }
+
+.banner { display: flex; gap: 12px; align-items: center; justify-content: space-between; flex-wrap: wrap; background: var(--eat-soft); border: 1px solid color-mix(in srgb, var(--eat) 35%, transparent); padding: 10px 14px; border-radius: 12px; margin-bottom: 16px; font-size: .95rem; }
+
+/* buttons */
+.btn { border: 1px solid var(--line); background: var(--surface); padding: 10px 16px; border-radius: 12px; cursor: pointer; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; }
+.btn:hover { border-color: var(--muted); }
+.btn.primary { background: var(--fast); border-color: var(--fast); color: #fff; }
+:root[data-theme="dark"] .btn.primary { color: #0c111e; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .btn.primary { color: #0c111e; } }
+.btn.eat { background: var(--eat); border-color: var(--eat); color: #fff; }
+.btn.big { font-size: 1.1rem; padding: 14px 22px; min-height: 54px; border-radius: 16px; width: 100%; }
+.btn.danger { color: var(--danger); }
+.btn.ghost { border-color: transparent; background: transparent; }
+.btn.sm { min-height: 36px; padding: 6px 12px; font-size: .9rem; border-radius: 10px; }
+.seg { display: inline-flex; background: var(--surface-2); border: 1px solid var(--line); border-radius: 12px; padding: 3px; gap: 2px; flex-wrap: wrap; }
+.seg button { border: 0; background: transparent; padding: 6px 12px; border-radius: 9px; cursor: pointer; font-weight: 700; color: var(--muted); font-size: .9rem; }
+.seg button[aria-pressed="true"] { background: var(--surface); color: var(--ink); box-shadow: var(--shadow); }
+
+/* timer view */
+.timer-grid { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 20px; align-items: start; }
+.ring-card { display: flex; flex-direction: column; align-items: center; gap: 18px; padding: 24px 20px; }
+.state-pill { display: inline-flex; align-items: center; gap: 8px; padding: 6px 14px; border-radius: 999px; font-weight: 700; font-size: .9rem; }
+.state-pill .dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+.state-pill.fasting { background: var(--fast-soft); color: var(--fast); }
+.state-pill.fasting .dot { animation: pulse 2s ease-in-out infinite; }
+.state-pill.eating { background: var(--eat-soft); color: var(--eat); }
+.state-pill.done { background: var(--ok-soft); color: var(--ok); }
+@keyframes pulse { 50% { opacity: .3; } }
+.ring-wrap { position: relative; width: min(100%, 340px); aspect-ratio: 1; max-width: 100%; }
+.ring-wrap svg { width: 100%; height: 100%; display: block; }
+.ring-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 2px; padding: 18%; }
+.ring-time { font-family: var(--f-mono); font-variant-numeric: tabular-nums; font-size: clamp(2rem, 9vw, 2.9rem); font-weight: 500; letter-spacing: -.03em; line-height: 1.05; }
+.ring-sub { color: var(--muted); font-size: .9rem; }
+.ring-pct { font-family: var(--f-display); font-weight: 800; font-size: 1.05rem; color: var(--fast); }
+.times { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 100%; }
+.time-box { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; background: var(--surface-2); text-align: left; cursor: default; min-width: 0; }
+button.time-box { cursor: pointer; }
+button.time-box:hover { border-color: var(--muted); }
+.time-box .eyebrow { display: flex; justify-content: space-between; gap: 6px; }
+.time-box .v { font-family: var(--f-mono); font-variant-numeric: tabular-nums; font-size: 1.05rem; font-weight: 500; }
+.time-box .d { color: var(--muted); font-size: .8rem; }
+
+.plans { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 8px; }
+.plan { border: 1px solid var(--line); background: var(--surface-2); border-radius: 12px; padding: 10px 8px; cursor: pointer; text-align: center; display: flex; flex-direction: column; gap: 2px; }
+.plan b { font-family: var(--f-display); font-size: 1.15rem; }
+.plan span { font-size: .75rem; color: var(--muted); }
+.plan[aria-pressed="true"] { border-color: var(--fast); background: var(--fast-soft); }
+.plan[aria-pressed="true"] b { color: var(--fast); }
+
+.stages { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.stage { display: grid; grid-template-columns: 54px 1fr; gap: 12px; padding: 10px 0; border-top: 1px solid var(--line); }
+.stage:first-child { border-top: 0; }
+.stage .h { font-family: var(--f-mono); font-size: .85rem; color: var(--muted); padding-top: 2px; }
+.stage .t { font-weight: 700; }
+.stage .x { font-size: .88rem; color: var(--muted); }
+.stage.now .t { color: var(--fast); }
+.stage.now .h { color: var(--fast); font-weight: 500; }
+.stage.past .t { color: var(--muted); }
+.stage-tag { display: inline-block; margin-left: 6px; font-size: .7rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; background: var(--fast); color: var(--surface); padding: 1px 7px; border-radius: 999px; vertical-align: 2px; }
+
+.week { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+.wd { display: flex; flex-direction: column; align-items: center; gap: 6px; font-size: .78rem; color: var(--muted); }
+.wd i { width: 100%; max-width: 40px; aspect-ratio: 1; border-radius: 10px; background: var(--surface-2); border: 1px solid var(--line); display: grid; place-items: center; font-style: normal; font-family: var(--f-mono); font-size: .75rem; color: var(--muted); }
+.wd i.met { background: var(--fast); border-color: var(--fast); color: var(--surface); }
+.wd i.part { background: var(--fast-soft); border-color: color-mix(in srgb, var(--fast) 40%, transparent); color: var(--fast); }
+.wd.today { color: var(--ink); font-weight: 700; }
+
+/* stats */
+.tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.tile { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 14px 16px; min-width: 0; }
+.tile .v { font-family: var(--f-display); font-weight: 800; font-size: 1.7rem; letter-spacing: -.02em; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.tile .v small { font-size: .9rem; font-weight: 700; color: var(--muted); margin-left: 2px; }
+.tile .l { font-size: .85rem; color: var(--muted); }
+.chart { width: 100%; overflow: hidden; }
+.chart svg { display: block; width: 100%; }
+.chart text { fill: var(--muted); font-family: var(--f-mono); font-size: 11px; }
+.chart .grid { stroke: var(--line); stroke-width: 1; }
+.chart .goal { stroke: var(--eat); stroke-width: 1.5; stroke-dasharray: 5 4; }
+.chart .goal-l { fill: var(--eat); font-weight: 500; }
+.chart .bar { fill: var(--fast); }
+.chart .bar.miss { fill: color-mix(in srgb, var(--fast) 38%, var(--surface)); }
+.chart .bar.sel { fill: var(--eat); }
+.chart .hit { fill: transparent; cursor: pointer; }
+.chart .wline { fill: none; stroke: var(--fast); stroke-width: 2.5; stroke-linejoin: round; stroke-linecap: round; }
+.chart .warea { fill: var(--fast-soft); opacity: .7; }
+.chart .wdot { fill: var(--surface); stroke: var(--fast); stroke-width: 2; }
+.chart .wend { fill: var(--fast); }
+.chart-cap { min-height: 1.5em; font-size: .9rem; color: var(--muted); margin-top: 8px; }
+.chart-cap b { color: var(--ink); }
+.legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: .82rem; color: var(--muted); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.legend i { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+.two { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; }
+.dow { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; align-items: end; height: 120px; }
+.dow div { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 4px; height: 100%; font-size: .75rem; color: var(--muted); }
+.dow b { display: block; width: 100%; max-width: 30px; border-radius: 6px 6px 3px 3px; background: var(--fast); min-height: 3px; }
+.dow em { font-style: normal; font-family: var(--f-mono); color: var(--ink); font-size: .72rem; }
+
+/* history */
+.hist-list { list-style: none; margin: 0; padding: 0; }
+.hist-day { font-size: .8rem; color: var(--muted); font-weight: 700; letter-spacing: .06em; text-transform: uppercase; padding: 14px 0 6px; }
+.hist-item { display: grid; grid-template-columns: 1fr auto auto; gap: 12px; align-items: center; padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); margin-bottom: 8px; cursor: pointer; text-align: left; width: 100%; }
+.hist-item:hover { border-color: var(--muted); }
+.hist-item .when { font-family: var(--f-mono); font-size: .9rem; }
+.hist-item .note { color: var(--muted); font-size: .85rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hist-item .dur { font-family: var(--f-display); font-weight: 800; font-size: 1.2rem; font-variant-numeric: tabular-nums; }
+.badge { font-size: .75rem; font-weight: 700; padding: 3px 9px; border-radius: 999px; white-space: nowrap; }
+.badge.ok { background: var(--ok-soft); color: var(--ok); }
+.badge.no { background: var(--surface-2); color: var(--muted); border: 1px solid var(--line); }
+.badge.demo { background: var(--eat-soft); color: var(--eat); }
+.empty { text-align: center; padding: 36px 16px; color: var(--muted); }
+.empty h3 { color: var(--ink); margin-bottom: 6px; }
+
+/* settings */
+.row { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 14px 0; border-top: 1px solid var(--line); flex-wrap: wrap; }
+.row:first-of-type { border-top: 0; }
+.row .lbl { min-width: 0; flex: 1 1 220px; }
+.row .lbl b { display: block; }
+.row .lbl span { color: var(--muted); font-size: .88rem; }
+.btns { display: flex; gap: 8px; flex-wrap: wrap; }
+textarea.export { width: 100%; min-height: 120px; font-family: var(--f-mono); font-size: .75rem; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-2); padding: 10px; }
+
+/* forms + modal */
+label.f { display: flex; flex-direction: column; gap: 6px; font-weight: 700; font-size: .9rem; }
+.f input, .f select, .f textarea { border: 1px solid var(--line); background: var(--surface-2); border-radius: 10px; padding: 10px 12px; font-weight: 400; min-height: 44px; width: 100%; min-width: 0; }
+.f textarea { min-height: 70px; resize: vertical; }
+.f .hint { font-weight: 400; color: var(--muted); font-size: .82rem; }
+.inline { display: flex; gap: 10px; flex-wrap: wrap; align-items: end; }
+.inline > * { flex: 1 1 140px; }
+.overlay { position: fixed; inset: 0; background: rgba(8, 12, 22, .5); z-index: 50; display: flex; align-items: center; justify-content: center; padding: 16px; }
+.sheet { background: var(--surface); border-radius: 18px; width: min(100%, 460px); max-height: calc(100% - 32px); overflow: auto; padding: 22px; display: flex; flex-direction: column; gap: 14px; box-shadow: 0 24px 60px rgba(0,0,0,.3); border: 1px solid var(--line); }
+.sheet h2 { font-size: 1.3rem; }
+.sheet-actions { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; margin-top: 4px; }
+.sheet-actions .spacer { flex: 1; }
+.err { color: var(--danger); font-size: .9rem; min-height: 1.2em; }
+
+.toast { position: fixed; left: 50%; bottom: calc(92px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--ink); color: var(--bg); padding: 10px 18px; border-radius: 12px; z-index: 60; font-weight: 700; max-width: calc(100% - 32px); box-shadow: var(--shadow); }
+
+/* mobile */
+@media (max-width: 860px) {
+  .timer-grid { grid-template-columns: 1fr; }
+  .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .two { grid-template-columns: 1fr; }
+  .topbar { backdrop-filter: none; background: var(--bg); }
+  .tabs { position: fixed; left: 0; right: 0; bottom: 0; margin: 0; z-index: 30; background: var(--surface); border-top: 1px solid var(--line); padding: 6px 8px calc(6px + env(safe-area-inset-bottom, 0px)); justify-content: space-around; }
+  .tab { flex-direction: column; gap: 2px; font-size: .72rem; padding: 6px 10px; border-radius: 12px; flex: 1; }
+  .tab svg { width: 22px; height: 22px; }
+  .tab[aria-selected="true"] { box-shadow: none; background: var(--fast-soft); color: var(--fast); }
+}
+@media (max-width: 400px) {
+  .card { padding: 16px; }
+  .hist-item { grid-template-columns: 1fr auto; }
+  .hist-item .badge { grid-column: 1 / -1; justify-self: start; }
+}
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+</style>
+
+<header class="topbar">
+  <div class="topbar-in">
+    <div class="brand">
+      <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="13" fill="none" stroke="var(--line)" stroke-width="4"/><path d="M16 3a13 13 0 1 1-12.4 17" fill="none" stroke="var(--fast)" stroke-width="4" stroke-linecap="round"/><circle cx="16" cy="16" r="3.2" fill="var(--eat)"/></svg>
+      Reloj de Ayuno
+    </div>
+    <nav class="tabs" role="tablist" aria-label="Secciones">
+      <button class="tab" role="tab" id="tab-timer" data-view="timer" aria-selected="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5M9 2h6"/></svg>Ayuno</button>
+      <button class="tab" role="tab" id="tab-stats" data-view="stats" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Estadísticas</button>
+      <button class="tab" role="tab" id="tab-history" data-view="history" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>Historial</button>
+      <button class="tab" role="tab" id="tab-settings" data-view="settings" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>Ajustes</button>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <div id="demo-banner" class="banner" hidden>
+    <span>Estás viendo <b>datos de ejemplo</b>. Se borran solos al empezar tu primer ayuno.</span>
+    <button class="btn sm" id="btn-clear-demo">Borrar ejemplos</button>
+  </div>
+
+  <!-- TIMER -->
+  <section class="view" id="view-timer" role="tabpanel" aria-labelledby="tab-timer">
+    <div class="timer-grid">
+      <div class="card ring-card">
+        <span id="state-pill" class="state-pill eating"><span class="dot"></span><span id="state-text">Ventana de comida</span></span>
+        <div class="ring-wrap">
+          <svg viewBox="0 0 300 300" id="ring" aria-hidden="true"></svg>
+          <div class="ring-center">
+            <div class="eyebrow" id="ring-label">Tiempo comiendo</div>
+            <div class="ring-time" id="ring-time">00:00:00</div>
+            <div class="ring-pct" id="ring-pct"></div>
+            <div class="ring-sub" id="ring-sub"></div>
+          </div>
+        </div>
+        <div class="times" id="times"></div>
+        <button class="btn big primary" id="btn-main">Empezar ayuno</button>
+      </div>
+
+      <div class="stack">
+        <div class="card">
+          <div class="card-head"><h2>Tu plan</h2><span class="muted" id="plan-desc"></span></div>
+          <div class="plans" id="plans"></div>
+        </div>
+        <div class="card">
+          <div class="card-head"><h2>Esta semana</h2><span class="muted" id="streak-mini"></span></div>
+          <div class="week" id="week"></div>
+        </div>
+        <div class="card">
+          <div class="card-head"><h2>Qué pasa en tu cuerpo</h2></div>
+          <ol class="stages" id="stages"></ol>
+          <p class="muted" style="font-size:.8rem;margin:10px 0 0">Orientativo. Los tiempos varían según la persona y lo que comiste antes. Si tienes alguna condición médica, consulta con tu médico.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- STATS -->
+  <section class="view" id="view-stats" role="tabpanel" aria-labelledby="tab-stats" hidden>
+    <div class="stack">
+      <div class="card-head" style="margin:0">
+        <h2 style="font-size:1.5rem">Estadísticas</h2>
+        <div class="seg" id="range-seg" role="group" aria-label="Periodo">
+          <button data-range="7" aria-pressed="true">7 días</button>
+          <button data-range="30" aria-pressed="false">30 días</button>
+          <button data-range="90" aria-pressed="false">90 días</button>
+          <button data-range="365" aria-pressed="false">1 año</button>
+        </div>
+      </div>
+      <div class="tiles" id="tiles"></div>
+      <div class="card">
+        <div class="card-head">
+          <h2>Horas de ayuno por día</h2>
+          <div class="legend"><span><i style="background:var(--fast)"></i>Objetivo cumplido</span><span><i style="background:color-mix(in srgb,var(--fast) 38%,var(--surface))"></i>Sin llegar</span><span><i style="background:var(--eat)"></i><span id="goal-leg">Objetivo</span></span></div>
+        </div>
+        <div class="chart" id="chart-days"></div>
+        <div class="chart-cap" id="chart-cap">Toca una barra para ver el detalle.</div>
+      </div>
+      <div class="two">
+        <div class="card">
+          <div class="card-head"><h2>Media por día de la semana</h2></div>
+          <div class="dow" id="dow"></div>
+        </div>
+        <div class="card">
+          <div class="card-head"><h2>Peso</h2><span class="muted" id="weight-delta"></span></div>
+          <div class="chart" id="chart-weight"></div>
+          <form class="inline" id="weight-form" style="margin-top:12px">
+            <label class="f">Fecha<input type="date" id="w-date" required></label>
+            <label class="f">Kg<input type="number" id="w-kg" step="0.1" min="20" max="400" inputmode="decimal" placeholder="72.5" required></label>
+            <button class="btn" type="submit" style="flex:0 0 auto">Añadir</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- HISTORY -->
+  <section class="view" id="view-history" role="tabpanel" aria-labelledby="tab-history" hidden>
+    <div class="card-head">
+      <h2 style="font-size:1.5rem">Historial</h2>
+      <button class="btn primary sm" id="btn-add">+ Añadir ayuno</button>
+    </div>
+    <ul class="hist-list" id="hist"></ul>
+  </section>
+
+  <!-- SETTINGS -->
+  <section class="view" id="view-settings" role="tabpanel" aria-labelledby="tab-settings" hidden>
+    <div class="stack" style="max-width:720px">
+      <h2 style="font-size:1.5rem">Ajustes</h2>
+      <div class="card">
+        <div class="row">
+          <div class="lbl"><b>Tema</b><span>Automático sigue el modo de tu dispositivo.</span></div>
+          <div class="seg" id="theme-seg" role="group" aria-label="Tema">
+            <button data-theme-opt="auto">Auto</button><button data-theme-opt="light">Claro</button><button data-theme-opt="dark">Oscuro</button>
+          </div>
+        </div>
+        <div class="row">
+          <div class="lbl"><b>Avisos</b><span id="notif-desc">Te avisa cuando llegas a tu objetivo de horas.</span></div>
+          <button class="btn sm" id="btn-notif">Activar avisos</button>
+        </div>
+        <div class="row">
+          <div class="lbl"><b>Objetivo personalizado</b><span>Horas de ayuno para el plan "Libre".</span></div>
+          <div class="inline" style="flex:0 1 200px"><label class="f" style="flex:1"><span class="hint">Horas</span><input type="number" id="custom-h" min="1" max="168" step="0.5"></label></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-head"><h2>Tus datos</h2></div>
+        <p class="muted" style="margin:0 0 6px;font-size:.92rem">Todo se guarda solo en este dispositivo. Haz una copia de seguridad de vez en cuando, o úsala para pasar tus datos del móvil al ordenador.</p>
+        <div class="row">
+          <div class="lbl"><b>Exportar copia</b><span>Descarga un archivo .json con todo tu historial.</span></div>
+          <div class="btns"><button class="btn sm" id="btn-export">Descargar</button><button class="btn sm" id="btn-copy">Copiar texto</button></div>
+        </div>
+        <div class="row">
+          <div class="lbl"><b>Importar copia</b><span>Reemplaza los datos actuales por los del archivo.</span></div>
+          <label class="btn sm" for="file-import">Elegir archivo<input type="file" id="file-import" accept="application/json,.json" hidden></label>
+        </div>
+        <textarea class="export" id="export-text" readonly hidden aria-label="Copia de seguridad"></textarea>
+        <div class="row">
+          <div class="lbl"><b>Borrar todo</b><span>Elimina historial, peso y ajustes de este dispositivo.</span></div>
+          <button class="btn sm danger" id="btn-wipe">Borrar datos</button>
+        </div>
+      </div>
+      <div class="card" id="sync-card">
+        <div class="card-head"><h2>Sincronizar móvil y ordenador</h2><span class="badge no" id="sync-badge">Desactivada</span></div>
+        <p class="muted" style="margin:0 0 10px;font-size:.92rem">Guarda tus datos en tu cuenta de <a href="https://jsonbin.io" target="_blank" rel="noopener" style="color:var(--fast)">JSONBin</a> para verlos igual en todos tus dispositivos. La clave se guarda solo en este dispositivo y nunca se incluye en la copia de seguridad.</p>
+        <div id="sync-off" class="stack" style="gap:12px">
+          <div class="inline">
+            <label class="f" style="flex:0 1 170px">Tipo de clave<select id="sync-ktype"><option value="access">Access Key</option><option value="master">Master Key</option></select></label>
+            <label class="f">Clave de JSONBin<input type="password" id="sync-key" autocomplete="off" spellcheck="false" placeholder="$2a$10$..."></label>
+          </div>
+          <label class="f">ID del bin <span class="hint">Déjalo vacío en el primer dispositivo y se creará uno. En los demás, pega el mismo ID.</span><input type="text" id="sync-bin" autocomplete="off" spellcheck="false" placeholder="Ej. 6708f1c2acd3cb34a8a1b2c3"></label>
+          <div class="err" id="sync-err"></div>
+          <div class="btns"><button class="btn primary sm" id="btn-sync-on">Conectar</button></div>
+        </div>
+        <div id="sync-on" class="stack" style="gap:10px" hidden>
+          <div class="time-box"><div class="eyebrow"><span>ID del bin (pégalo en tus otros dispositivos)</span></div><div class="v" id="sync-bin-show" style="word-break:break-all;font-size:.95rem"></div></div>
+          <div class="muted" id="sync-status" style="font-size:.9rem"></div>
+          <div class="btns"><button class="btn sm" id="btn-sync-now">Sincronizar ahora</button><button class="btn sm" id="btn-sync-copy">Copiar ID</button><button class="btn sm danger" id="btn-sync-off">Desconectar este dispositivo</button></div>
+        </div>
+      </div>
+      <div class="card" id="install-card">
+        <div class="card-head"><h2>Instalar en el móvil</h2></div>
+        <p style="margin:0 0 8px"><b>Android (Chrome):</b> menú ⋮ y luego <i>Instalar aplicación</i> o <i>Añadir a pantalla de inicio</i>.</p>
+        <p style="margin:0 0 8px"><b>iPhone (Safari):</b> botón Compartir y luego <i>Añadir a pantalla de inicio</i>.</p>
+        <button class="btn sm primary" id="btn-install" hidden>Instalar ahora</button>
+      </div>
+    </div>
+  </section>
+</main>
+
+<div id="modal-root"></div>
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+<script>
+(() => {
+'use strict';
+const KEY = 'reloj-ayuno.v1';
+const H = 3600e3, MIN = 60e3, DAY = 864e5;
+const PLANS = [
+  { id: '13:11', h: 13, label: 'Suave' },
+  { id: '14:10', h: 14, label: 'Inicio' },
+  { id: '16:8', h: 16, label: 'Clásico' },
+  { id: '18:6', h: 18, label: 'Avanzado' },
+  { id: '20:4', h: 20, label: 'Guerrero' },
+  { id: 'OMAD', h: 23, label: '1 comida' },
+  { id: '36h', h: 36, label: 'Monje' },
+  { id: 'libre', h: null, label: 'Libre' },
+];
+const STAGES = [
+  { h: 0, t: 'Digestión', x: 'El cuerpo usa la energía de la última comida. Sube la insulina.' },
+  { h: 4, t: 'Bajada de azúcar', x: 'La glucosa y la insulina bajan. Empiezas a tirar de las reservas de glucógeno.' },
+  { h: 12, t: 'Quema de grasa', x: 'El glucógeno se agota y el cuerpo usa cada vez más grasa como combustible.' },
+  { h: 16, t: 'Cetosis ligera', x: 'El hígado produce cuerpos cetónicos. Mucha gente nota más claridad mental.' },
+  { h: 18, t: 'Cetosis', x: 'La grasa es ya la fuente principal de energía.' },
+  { h: 24, t: 'Autofagia', x: 'Las células aceleran el reciclaje de componentes dañados.' },
+  { h: 48, t: 'Hormona de crecimiento', x: 'La hormona de crecimiento sube de forma notable. Ayuno largo: con supervisión.' },
+];
+
+/* ---------- storage ---------- */
+const defaults = () => ({ v: 1, plan: '16:8', customH: 16, current: null, curU: 0, prefsU: 0, deleted: {}, fasts: [], weights: [], theme: 'auto', notify: false, seeded: false });
+let S;
+function load() {
+  try { const raw = localStorage.getItem(KEY); S = raw ? Object.assign(defaults(), JSON.parse(raw)) : null; } catch (e) { S = null; }
+  if (!S) { S = defaults(); seedDemo(); }
+}
+function save(local) { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} if (!local) Sync.schedule(); }
+const now_ = () => Date.now();
+function tomb(id) { if (id) S.deleted[id] = now_(); }
+const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
+
+function seedDemo() {
+  // Ejemplo: ~6 semanas de 16:8 con algo de variación. Marcado como demo.
+  const now = new Date(); const fasts = []; const weights = [];
+  let seed = 7; const rnd = () => (seed = (seed * 9301 + 49297) % 233280) / 233280;
+  for (let d = 42; d >= 1; d--) {
+    if (rnd() < .12) continue;
+    const end = new Date(now); end.setDate(end.getDate() - d + 1); end.setHours(12, Math.floor(rnd() * 60), 0, 0);
+    const len = (13.5 + rnd() * 5.5 + (d % 7 === 0 ? 2 : 0)) * H;
+    const goal = d > 20 ? 14 : 16;
+    fasts.push({ id: uid(), start: end.getTime() - len, end: end.getTime(), goal, note: '', demo: true });
+    if (d % 4 === 0) { const wd = new Date(end); weights.push({ id: uid(), date: ymd(wd), kg: +(78.4 - (42 - d) * 0.07 + (rnd() - .5) * .4).toFixed(1), demo: true }); }
+  }
+  S.fasts = fasts; S.weights = weights; S.seeded = true;
+}
+const hasDemo = () => S.fasts.some(f => f.demo) || S.weights.some(w => w.demo);
+function clearDemo() { S.fasts = S.fasts.filter(f => !f.demo); S.weights = S.weights.filter(w => !w.demo); save(true); }
+
+/* ---------- helpers ---------- */
+const $ = s => document.querySelector(s);
+const pad = n => String(n).padStart(2, '0');
+function ymd(d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
+function dayStart(t) { const d = new Date(t); d.setHours(0, 0, 0, 0); return d.getTime(); }
+function hms(ms) { ms = Math.max(0, ms); const s = Math.floor(ms / 1000); return pad(Math.floor(s / 3600)) + ':' + pad(Math.floor(s / 60) % 60) + ':' + pad(s % 60); }
+function dur(ms) { ms = Math.max(0, ms); const m = Math.round(ms / MIN); const h = Math.floor(m / 60); return h ? h + ' h ' + pad(m % 60) + ' min' : m + ' min'; }
+function hShort(h) { return (Math.round(h * 10) / 10).toLocaleString('es-ES') + ' h'; }
+const fmtT = new Intl.DateTimeFormat('es-ES', { hour: '2-digit', minute: '2-digit' });
+const fmtD = new Intl.DateTimeFormat('es-ES', { weekday: 'short', day: 'numeric', month: 'short' });
+const fmtDL = new Intl.DateTimeFormat('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
+const fmtDM = new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'short' });
+function relDay(t) {
+  const d = dayStart(t), today = dayStart(Date.now());
+  if (d === today) return 'hoy'; if (d === today - DAY) return 'ayer'; if (d === today + DAY) return 'mañana';
+  return fmtD.format(t);
+}
+function toLocalInput(t) { const d = new Date(t); return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + 'T' + pad(d.getHours()) + ':' + pad(d.getMinutes()); }
+function fromLocalInput(v) { const t = new Date(v).getTime(); return isNaN(t) ? null : t; }
+function esc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+function planHours(id = S.plan) { const p = PLANS.find(p => p.id === id); return p && p.h ? p.h : (+S.customH || 16); }
+function toast(msg) { const t = $('#toast'); t.textContent = msg; t.hidden = false; clearTimeout(toast._t); toast._t = setTimeout(() => t.hidden = true, 2600); }
+const fasts = () => S.fasts.slice().sort((a, b) => b.end - a.end);
+
+/* ---------- theme ---------- */
+function applyTheme() {
+  const r = document.documentElement;
+  if (S.theme === 'auto') r.removeAttribute('data-theme'); else r.setAttribute('data-theme', S.theme);
+  document.querySelectorAll('[data-theme-opt]').forEach(b => b.setAttribute('aria-pressed', b.dataset.themeOpt === S.theme));
+  const m = document.querySelector('meta[name="theme-color"]');
+  if (m) m.content = getComputedStyle(r).getPropertyValue('--bg').trim() || '#eef1f6';
+}
+
+/* ---------- tabs ---------- */
+let view = 'timer';
+function show(v) {
+  view = v;
+  document.querySelectorAll('.tab').forEach(t => t.setAttribute('aria-selected', t.dataset.view === v));
+  document.querySelectorAll('.view').forEach(s => s.hidden = s.id !== 'view-' + v);
+  try { localStorage.setItem(KEY + '.tab', v); } catch (e) {}
+  render();
+  window.scrollTo(0, 0);
+}
+
+/* ---------- timer view ---------- */
+function ringSVG(frac, color, ticks, overGoal) {
+  const cx = 150, r = 128, C = 2 * Math.PI * r;
+  const f = Math.max(0, Math.min(1, frac));
+  let s = `<circle cx="${cx}" cy="${cx}" r="${r}" fill="none" stroke="var(--line)" stroke-width="18"/>`;
+  s += `<circle cx="${cx}" cy="${cx}" r="${r}" fill="none" stroke="${color}" stroke-width="18" stroke-linecap="round" stroke-dasharray="${(C * f).toFixed(2)} ${C.toFixed(2)}" transform="rotate(-90 ${cx} ${cx})" style="transition:stroke-dasharray .6s"/>`;
+  for (const k of ticks) {
+    const a = k.f * 2 * Math.PI - Math.PI / 2;
+    const x1 = cx + Math.cos(a) * (r - 14), y1 = cx + Math.sin(a) * (r - 14), x2 = cx + Math.cos(a) * (r + 14), y2 = cx + Math.sin(a) * (r + 14);
+    const lx = cx + Math.cos(a) * (r - 30), ly = cx + Math.sin(a) * (r - 30);
+    s += `<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="var(--surface)" stroke-width="3"/>`;
+    s += `<text x="${lx.toFixed(1)}" y="${(ly + 4).toFixed(1)}" text-anchor="middle" style="font:500 11px var(--f-mono);fill:var(--muted)">${k.h}h</text>`;
+  }
+  if (f > 0 && f < 1) {
+    const a = f * 2 * Math.PI - Math.PI / 2;
+    s += `<circle cx="${(cx + Math.cos(a) * r).toFixed(1)}" cy="${(cx + Math.sin(a) * r).toFixed(1)}" r="6" fill="var(--surface)" stroke="${color}" stroke-width="3"/>`;
+  }
+  return s;
+}
+
+function renderTimer() {
+  const now = Date.now(), cur = S.current;
+  const pill = $('#state-pill'), btn = $('#btn-main');
+  if (cur) {
+    const el = now - cur.start, goalMs = cur.goal * H, frac = el / goalMs, done = el >= goalMs;
+    pill.className = 'state-pill ' + (done ? 'done' : 'fasting');
+    $('#state-text').textContent = done ? '¡Objetivo cumplido!' : 'Ayunando · plan ' + (PLANS.find(p => p.h === cur.goal)?.id || cur.goal + ' h');
+    $('#ring-label').textContent = 'Tiempo en ayuno';
+    $('#ring-time').textContent = hms(el);
+    $('#ring-pct').textContent = Math.floor(Math.min(frac, 9.99) * 100) + ' %';
+    $('#ring-pct').style.color = done ? 'var(--ok)' : 'var(--fast)';
+    $('#ring-sub').textContent = done ? '+' + dur(el - goalMs) + ' extra' : 'Faltan ' + dur(goalMs - el);
+    const ticks = STAGES.filter(s => s.h > 0 && s.h < cur.goal).map(s => ({ h: s.h, f: s.h / cur.goal }));
+    $('#ring').innerHTML = ringSVG(frac, done ? 'var(--ok)' : 'var(--fast)', ticks);
+    $('#times').innerHTML =
+      `<button class="time-box" id="edit-start"><div class="eyebrow"><span>Inicio</span><span>Editar</span></div><div class="v">${fmtT.format(cur.start)}</div><div class="d">${relDay(cur.start)}</div></button>` +
+      `<button class="time-box" id="edit-goal"><div class="eyebrow"><span>Objetivo</span><span>${cur.goal} h</span></div><div class="v">${fmtT.format(cur.start + goalMs)}</div><div class="d">${relDay(cur.start + goalMs)}</div></button>`;
+    $('#edit-start').onclick = editStart;
+    $('#edit-goal').onclick = editGoal;
+    btn.textContent = 'Terminar ayuno'; btn.className = 'btn big eat';
+    if (done && !cur.notified) { cur.notified = true; save(); notifyGoal(cur); }
+  } else {
+    const last = fasts()[0], eatH = Math.max(1, 24 - planHours());
+    pill.className = 'state-pill eating';
+    $('#state-text').textContent = 'Ventana de comida';
+    $('#ring-label').textContent = last ? 'Desde tu último ayuno' : 'Listo para empezar';
+    $('#ring-pct').textContent = '';
+    if (last && now - last.end < 7 * DAY) {
+      const el = now - last.end, frac = el / (eatH * H);
+      $('#ring-time').textContent = hms(el);
+      $('#ring-sub').textContent = el < eatH * H ? 'Ventana de ' + eatH + ' h · quedan ' + dur(eatH * H - el) : 'Tu ventana de ' + eatH + ' h ya terminó';
+      $('#ring').innerHTML = ringSVG(frac, 'var(--eat)', []);
+      const nextT = last.end + eatH * H;
+      $('#times').innerHTML =
+        `<div class="time-box"><div class="eyebrow"><span>Último ayuno</span></div><div class="v">${dur(last.end - last.start)}</div><div class="d">terminó ${relDay(last.end)} ${fmtT.format(last.end)}</div></div>` +
+        `<div class="time-box"><div class="eyebrow"><span>Próximo ayuno</span></div><div class="v">${fmtT.format(nextT)}</div><div class="d">${relDay(nextT)} (sugerido)</div></div>`;
+    } else {
+      $('#ring-time').textContent = '00:00:00';
+      $('#ring-sub').textContent = 'Plan ' + S.plan + ' · ' + planHours() + ' h de ayuno';
+      $('#ring').innerHTML = ringSVG(0, 'var(--fast)', []);
+      $('#times').innerHTML = `<div class="time-box" style="grid-column:1/-1"><div class="eyebrow"><span>Consejo</span></div><div class="d" style="font-size:.9rem">Pulsa empezar al terminar tu última comida. Si ya empezaste antes, podrás corregir la hora de inicio.</div></div>`;
+    }
+    btn.textContent = 'Empezar ayuno'; btn.className = 'btn big primary';
+  }
+  // plans
+  const ph = planHours();
+  $('#plan-desc').textContent = ph + ' h ayuno · ' + Math.max(0, 24 - ph) + ' h comida';
+  if (Math.max(0, 24 - ph) === 0) $('#plan-desc').textContent = ph + ' h de ayuno';
+  $('#plans').innerHTML = PLANS.map(p => `<button class="plan" data-plan="${p.id}" aria-pressed="${p.id === S.plan}"><b>${p.id === 'libre' ? (S.customH + ' h') : p.id}</b><span>${p.label}</span></button>`).join('');
+  // stages
+  const elH = cur ? (now - cur.start) / H : -1;
+  let curIdx = -1; STAGES.forEach((s, i) => { if (elH >= s.h) curIdx = i; });
+  $('#stages').innerHTML = STAGES.map((s, i) => `<li class="stage ${i === curIdx ? 'now' : i < curIdx ? 'past' : ''}"><div class="h">${s.h} h</div><div><div class="t">${s.t}${i === curIdx ? '<span class="stage-tag">Ahora</span>' : ''}</div><div class="x">${s.x}</div></div></li>`).join('');
+  // week
+  const today = dayStart(now), wdNow = (new Date(now).getDay() + 6) % 7, monday = today - wdNow * DAY;
+  const byDay = dayMap();
+  const names = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
+  $('#week').innerHTML = names.map((n, i) => {
+    const d = monday + i * DAY, info = byDay.get(d);
+    const cls = info ? (info.met ? 'met' : 'part') : '';
+    return `<div class="wd ${d === today ? 'today' : ''}"><i class="${cls}">${info ? Math.round(info.hours) : ''}</i>${n}</div>`;
+  }).join('');
+  const st = streaks();
+  $('#streak-mini').textContent = st.current ? 'Racha: ' + st.current + (st.current === 1 ? ' día' : ' días') : '';
+}
+
+/* ---------- stats ---------- */
+function dayMap() {
+  // Las horas cuentan para el día en que termina el ayuno.
+  const m = new Map();
+  for (const f of S.fasts) {
+    const d = dayStart(f.end), h = (f.end - f.start) / H;
+    const e = m.get(d) || { hours: 0, met: false, goal: f.goal, list: [] };
+    e.hours += h; e.met = e.met || h >= f.goal; e.goal = Math.max(e.goal, f.goal); e.list.push(f);
+    m.set(d, e);
+  }
+  return m;
+}
+function streaks() {
+  const m = dayMap(); const days = [...m.entries()].filter(([, e]) => e.met).map(([d]) => d).sort((a, b) => a - b);
+  let best = 0, run = 0, prev = null;
+  for (const d of days) { run = prev !== null && Math.round((d - prev) / DAY) === 1 ? run + 1 : 1; best = Math.max(best, run); prev = d; }
+  const today = dayStart(Date.now());
+  let current = 0;
+  let d = m.get(today)?.met ? today : today - DAY;
+  // Si hoy aún no has terminado, la racha sigue viva desde ayer.
+  while (m.get(d)?.met) { current++; d -= DAY; }
+  return { best, current };
+}
+let range = 7, selDay = null;
+function renderStats() {
+  const now = Date.now(), today = dayStart(now), from = today - (range - 1) * DAY;
+  const inR = S.fasts.filter(f => f.end >= from);
+  const hrs = inR.map(f => (f.end - f.start) / H);
+  const met = inR.filter(f => (f.end - f.start) / H >= f.goal).length;
+  const st = streaks();
+  const avg = hrs.length ? hrs.reduce((a, b) => a + b, 0) / hrs.length : 0;
+  const total = hrs.reduce((a, b) => a + b, 0);
+  const tiles = [
+    [hrs.length, '', 'ayunos en el periodo'],
+    [hrs.length ? (Math.round(avg * 10) / 10).toLocaleString('es-ES') : '–', hrs.length ? 'h' : '', 'duración media'],
+    [hrs.length ? Math.round(met / hrs.length * 100) : '–', hrs.length ? '%' : '', 'objetivos cumplidos'],
+    [hrs.length ? (Math.round(Math.max(...hrs) * 10) / 10).toLocaleString('es-ES') : '–', hrs.length ? 'h' : '', 'ayuno más largo'],
+    [st.current, st.current === 1 ? 'día' : 'días', 'racha actual'],
+    [st.best, st.best === 1 ? 'día' : 'días', 'mejor racha'],
+    [Math.round(total).toLocaleString('es-ES'), 'h', 'horas totales en ayuno'],
+    [S.fasts.length, '', 'ayunos registrados en total'],
+  ];
+  $('#tiles').innerHTML = tiles.map(([v, u, l]) => `<div class="tile"><div class="v">${v}<small>${u}</small></div><div class="l">${l}</div></div>`).join('');
+  drawDays(from, today);
+  // day of week
+  const sums = Array(7).fill(0), cnt = Array(7).fill(0);
+  for (const f of inR) { const i = (new Date(f.end).getDay() + 6) % 7; sums[i] += (f.end - f.start) / H; cnt[i]++; }
+  const avgs = sums.map((s, i) => cnt[i] ? s / cnt[i] : 0), mx = Math.max(1, ...avgs);
+  $('#dow').innerHTML = ['L', 'M', 'X', 'J', 'V', 'S', 'D'].map((n, i) => `<div><em>${cnt[i] ? (Math.round(avgs[i] * 10) / 10).toLocaleString('es-ES') : ''}</em><b style="height:${(avgs[i] / mx * 80).toFixed(1)}px;${cnt[i] ? '' : 'background:var(--line)'}"></b>${n}</div>`).join('');
+  drawWeight();
+}
+function drawDays(from, today) {
+  const box = $('#chart-days'); const W = Math.max(280, box.clientWidth || 600), Hh = 230;
+  const m = dayMap(); const n = Math.round((today - from) / DAY) + 1;
+  const pl = 34, pr = 8, pt = 12, pb = 28, cw = W - pl - pr, ch = Hh - pt - pb;
+  const goal = planHours();
+  let maxV = Math.max(goal + 2, 4); for (let i = 0; i < n; i++) { const e = m.get(from + i * DAY); if (e) maxV = Math.max(maxV, e.hours); }
+  const step = maxV > 30 ? 12 : maxV > 16 ? 6 : 4; maxV = Math.ceil(maxV / step) * step;
+  const y = v => pt + ch - v / maxV * ch;
+  const slot = cw / n, bw = Math.max(1.5, Math.min(36, slot * .68));
+  let s = '';
+  for (let v = 0; v <= maxV; v += step) s += `<line class="grid" x1="${pl}" x2="${W - pr}" y1="${y(v)}" y2="${y(v)}"/><text x="${pl - 6}" y="${y(v) + 4}" text-anchor="end">${v}h</text>`;
+  const labelEvery = n <= 7 ? 1 : n <= 31 ? (W < 500 ? 7 : 3) : n <= 90 ? (W < 500 ? 30 : 14) : (W < 500 ? 120 : 60);
+  for (let i = 0; i < n; i++) {
+    const d = from + i * DAY, e = m.get(d), x = pl + i * slot + (slot - bw) / 2;
+    if (e) {
+      const cls = d === selDay ? 'bar sel' : e.met ? 'bar' : 'bar miss';
+      const rr = Math.min(4, bw / 2);
+      s += `<rect class="${cls}" x="${x.toFixed(2)}" y="${y(e.hours).toFixed(2)}" width="${bw.toFixed(2)}" height="${Math.max(1, ch - (y(e.hours) - pt)).toFixed(2)}" rx="${rr}"/>`;
+      if (n <= 7) s += `<text x="${(x + bw / 2).toFixed(1)}" y="${(y(e.hours) - 5).toFixed(1)}" text-anchor="middle" style="fill:var(--ink)">${Math.round(e.hours * 10) / 10}</text>`;
+    }
+    if ((n - 1 - i) % labelEvery === 0) {
+      const lab = n <= 7 ? new Intl.DateTimeFormat('es-ES', { weekday: 'short' }).format(d).replace('.', '') : fmtDM.format(d).replace('.', '');
+      s += `<text x="${(pl + i * slot + slot / 2).toFixed(1)}" y="${Hh - 8}" text-anchor="middle">${lab}</text>`;
+    }
+    s += `<rect class="hit" data-day="${d}" x="${(pl + i * slot).toFixed(2)}" y="${pt}" width="${slot.toFixed(2)}" height="${ch}"/>`;
+  }
+  s += `<line class="goal" x1="${pl}" x2="${W - pr}" y1="${y(goal)}" y2="${y(goal)}"/>`;
+  $('#goal-leg').textContent = 'Objetivo (' + goal + ' h)';
+  box.innerHTML = `<svg viewBox="0 0 ${W} ${Hh}" height="${Hh}" role="img" aria-label="Horas de ayuno por día">${s}</svg>`;
+  box.querySelectorAll('.hit').forEach(r => r.addEventListener('click', () => { selDay = +r.dataset.day; drawDays(from, today); capDay(); }));
+  capDay();
+}
+function capDay() {
+  const cap = $('#chart-cap');
+  if (selDay == null) { cap.textContent = 'Toca una barra para ver el detalle.'; return; }
+  const e = dayMap().get(selDay);
+  if (!e) { cap.innerHTML = `<b>${fmtDL.format(selDay)}</b> · sin ayuno registrado`; return; }
+  cap.innerHTML = `<b>${fmtDL.format(selDay)}</b> · ${dur(e.hours * H)} ${e.met ? '· objetivo cumplido' : '· objetivo ' + e.goal + ' h'}` + (e.list.length > 1 ? ` (${e.list.length} ayunos)` : '');
+}
+function drawWeight() {
+  const box = $('#chart-weight'); const ws = S.weights.slice().sort((a, b) => a.date.localeCompare(b.date));
+  if (ws.length < 2) { box.innerHTML = `<div class="empty" style="padding:18px 0">${ws.length ? 'Añade otro registro para ver la evolución.' : 'Registra tu peso para ver cómo evoluciona.'}</div>`; $('#weight-delta').textContent = ws.length ? ws[0].kg + ' kg' : ''; return; }
+  const W = Math.max(260, box.clientWidth || 400), Hh = 150, pl = 38, pr = 12, pt = 14, pb = 24;
+  const ts = ws.map(w => new Date(w.date + 'T12:00').getTime()), kg = ws.map(w => w.kg);
+  let lo = Math.floor(Math.min(...kg) - .5), hi = Math.ceil(Math.max(...kg) + .5);
+  const t0 = ts[0], t1 = ts[ts.length - 1] || t0 + 1;
+  const x = t => pl + (t - t0) / Math.max(1, t1 - t0) * (W - pl - pr), y = v => pt + (hi - v) / (hi - lo) * (Hh - pt - pb);
+  let s = ''; const stp = Math.max(1, Math.ceil((hi - lo) / 3));
+  for (let v = lo; v <= hi; v += stp) s += `<line class="grid" x1="${pl}" x2="${W - pr}" y1="${y(v)}" y2="${y(v)}"/><text x="${pl - 6}" y="${y(v) + 4}" text-anchor="end">${v}</text>`;
+  const pts = ts.map((t, i) => x(t).toFixed(1) + ',' + y(kg[i]).toFixed(1));
+  s += `<polygon class="warea" points="${x(t0)},${y(lo)} ${pts.join(' ')} ${x(t1)},${y(lo)}"/>`;
+  s += `<polyline class="wline" points="${pts.join(' ')}"/>`;
+  ts.forEach((t, i) => { if (i === ts.length - 1) s += `<circle class="wend" cx="${x(t)}" cy="${y(kg[i])}" r="5"/>`; });
+  s += `<text x="${pl}" y="${Hh - 6}">${fmtDM.format(t0).replace('.', '')}</text><text x="${W - pr}" y="${Hh - 6}" text-anchor="end">${fmtDM.format(t1).replace('.', '')}</text>`;
+  s += `<text x="${Math.min(x(t1), W - pr) - 8}" y="${y(kg[kg.length - 1]) - 10}" text-anchor="end" style="fill:var(--ink);font-weight:500">${kg[kg.length - 1].toLocaleString('es-ES')} kg</text>`;
+  box.innerHTML = `<svg viewBox="0 0 ${W} ${Hh}" height="${Hh}" role="img" aria-label="Evolución del peso">${s}</svg>`;
+  const d = Math.round((kg[kg.length - 1] - kg[0]) * 10) / 10;
+  $('#weight-delta').textContent = (d > 0 ? '+' : '') + d.toLocaleString('es-ES') + ' kg desde ' + fmtDM.format(t0).replace('.', '');
+}
+
+/* ---------- history ---------- */
+function renderHistory() {
+  const list = fasts();
+  if (!list.length) { $('#hist').innerHTML = `<li class="empty"><h3>Aún no hay ayunos</h3>Empieza uno desde la pestaña Ayuno o añade uno pasado con <b>+ Añadir ayuno</b>.</li>`; return; }
+  let html = '', lastMonth = '';
+  for (const f of list) {
+    const mo = new Intl.DateTimeFormat('es-ES', { month: 'long', year: 'numeric' }).format(f.end);
+    if (mo !== lastMonth) { html += `<li class="hist-day">${mo}</li>`; lastMonth = mo; }
+    const h = (f.end - f.start) / H, ok = h >= f.goal;
+    html += `<li><button class="hist-item" data-id="${f.id}"><div style="min-width:0"><div class="when">${fmtD.format(f.start).replace('.', '')} ${fmtT.format(f.start)} → ${dayStart(f.start) === dayStart(f.end) ? '' : fmtD.format(f.end).replace('.', '') + ' '}${fmtT.format(f.end)}</div>${f.note ? `<div class="note">${esc(f.note)}</div>` : ''}</div><span class="badge ${f.demo ? 'demo' : ok ? 'ok' : 'no'}">${f.demo ? 'Ejemplo' : ok ? 'Objetivo ' + f.goal + ' h ✓' : 'Objetivo ' + f.goal + ' h'}</span><span class="dur">${(Math.round(h * 10) / 10).toLocaleString('es-ES')} h</span></button></li>`;
+  }
+  $('#hist').innerHTML = html;
+  $('#hist').querySelectorAll('.hist-item').forEach(b => b.onclick = () => editFast(S.fasts.find(f => f.id === b.dataset.id)));
+}
+
+/* ---------- settings ---------- */
+function renderSettings() {
+  applyTheme();
+  $('#custom-h').value = S.customH;
+  const nb = $('#btn-notif'), nd = $('#notif-desc');
+  if (!('Notification' in window)) { nb.disabled = true; nb.textContent = 'No disponible'; nd.textContent = 'Este navegador no permite avisos. Instala la app para usarlos.'; }
+  else if (Notification.permission === 'denied') { nb.disabled = true; nb.textContent = 'Bloqueados'; nd.textContent = 'Has bloqueado los avisos. Actívalos en los ajustes del navegador.'; }
+  else { nb.disabled = false; nb.textContent = S.notify && Notification.permission === 'granted' ? 'Desactivar avisos' : 'Activar avisos'; nd.textContent = 'Te avisa cuando llegas a tu objetivo de horas (con la app abierta o en segundo plano).'; }
+}
+
+/* ---------- modal ---------- */
+function modal(html, onMount) {
+  const root = $('#modal-root');
+  root.innerHTML = `<div class="overlay"><div class="sheet" role="dialog" aria-modal="true">${html}</div></div>`;
+  const ov = root.firstChild;
+  const close = () => { root.innerHTML = ''; document.removeEventListener('keydown', onKey); };
+  const onKey = e => { if (e.key === 'Escape') close(); };
+  document.addEventListener('keydown', onKey);
+  ov.addEventListener('click', e => { if (e.target === ov) close(); });
+  ov.querySelectorAll('[data-close]').forEach(b => b.onclick = close);
+  onMount && onMount(ov, close);
+  const first = ov.querySelector('input, select, textarea, button.primary'); first && first.focus();
+}
+function confirmBox(title, text, okLabel, onOk) {
+  modal(`<h2>${title}</h2><p class="muted" style="margin:0">${text}</p><div class="sheet-actions"><button class="btn" data-close>Cancelar</button><button class="btn primary" id="m-ok" style="background:var(--danger);border-color:var(--danger)">${okLabel}</button></div>`,
+    (ov, close) => ov.querySelector('#m-ok').onclick = () => { close(); onOk(); });
+}
+function goalOptions(sel) {
+  const hs = [...new Set([...PLANS.filter(p => p.h).map(p => p.h), +S.customH, sel])].sort((a, b) => a - b);
+  return hs.map(h => `<option value="${h}" ${h === sel ? 'selected' : ''}>${h} h${PLANS.find(p => p.h === h) ? ' (' + PLANS.find(p => p.h === h).id + ')' : ''}</option>`).join('');
+}
+
+function startFast() {
+  if (hasDemo()) { clearDemo(); toast('Ejemplos borrados. ¡Empieza tu primer ayuno!'); }
+  S.current = { start: Date.now(), goal: planHours(), notified: false }; S.curU = now_();
+  save(); render();
+  if (S.notify) askNotif(true);
+}
+function editStart() {
+  modal(`<h2>Hora de inicio</h2><label class="f">¿Cuándo empezaste a ayunar?<input type="datetime-local" id="m-start" value="${toLocalInput(S.current.start)}"></label><div class="err" id="m-err"></div><div class="sheet-actions"><button class="btn" data-close>Cancelar</button><button class="btn primary" id="m-save">Guardar</button></div>`,
+    (ov, close) => ov.querySelector('#m-save').onclick = () => {
+      const t = fromLocalInput(ov.querySelector('#m-start').value);
+      if (!t) return ov.querySelector('#m-err').textContent = 'Escribe una fecha y hora válidas.';
+      if (t > Date.now()) return ov.querySelector('#m-err').textContent = 'La hora de inicio no puede estar en el futuro.';
+      S.current.start = t; S.current.notified = Date.now() - t >= S.current.goal * H; S.curU = now_(); save(); close(); render(); toast('Hora de inicio actualizada');
+    });
+}
+function editGoal() {
+  modal(`<h2>Objetivo de este ayuno</h2><label class="f">Horas<select id="m-goal">${goalOptions(S.current.goal)}</select></label><div class="sheet-actions"><button class="btn" data-close>Cancelar</button><button class="btn primary" id="m-save">Guardar</button></div>`,
+    (ov, close) => ov.querySelector('#m-save').onclick = () => { S.current.goal = +ov.querySelector('#m-goal').value; S.current.notified = Date.now() - S.current.start >= S.current.goal * H; S.curU = now_(); save(); close(); render(); });
+}
+function endFast() {
+  const cur = S.current, el = Date.now() - cur.start;
+  modal(`<h2>Terminar ayuno</h2><p style="margin:0">Llevas <b>${dur(el)}</b> de ${cur.goal} h.</p>
+    <label class="f">Hora de fin<input type="datetime-local" id="m-end" value="${toLocalInput(Date.now())}"></label>
+    <label class="f">Nota <span class="hint">opcional: cómo te sentiste, qué comiste…</span><textarea id="m-note" maxlength="300"></textarea></label>
+    <div class="err" id="m-err"></div>
+    <div class="sheet-actions"><button class="btn ghost danger" id="m-discard">Descartar</button><span class="spacer"></span><button class="btn" data-close>Seguir ayunando</button><button class="btn primary" id="m-save">Guardar</button></div>`,
+    (ov, close) => {
+      ov.querySelector('#m-save').onclick = () => {
+        let end = fromLocalInput(ov.querySelector('#m-end').value);
+        if (end && Math.abs(end - Date.now()) < MIN) end = Date.now();
+        if (!end) return ov.querySelector('#m-err').textContent = 'Escribe una fecha y hora válidas.';
+        if (end <= cur.start) return ov.querySelector('#m-err').textContent = 'El fin tiene que ser posterior al inicio (' + fmtT.format(cur.start) + ').';
+        if (end > Date.now() + MIN) return ov.querySelector('#m-err').textContent = 'La hora de fin no puede estar en el futuro.';
+        const f = { id: uid(), start: cur.start, end, goal: cur.goal, note: ov.querySelector('#m-note').value.trim(), u: now_() };
+        S.fasts.push(f); S.current = null; S.curU = now_(); save(); close(); render();
+        toast((end - f.start) / H >= f.goal ? '¡Bien hecho! Ayuno de ' + dur(end - f.start) + ' guardado' : 'Ayuno de ' + dur(end - f.start) + ' guardado');
+      };
+      ov.querySelector('#m-discard').onclick = () => { close(); confirmBox('¿Descartar este ayuno?', 'No se guardará en el historial.', 'Descartar', () => { S.current = null; S.curU = now_(); save(); render(); }); };
+    });
+}
+function editFast(f) {
+  const isNew = !f;
+  const base = f || { start: Date.now() - 16 * H - 2 * H, end: Date.now() - 2 * H, goal: planHours(), note: '' };
+  modal(`<h2>${isNew ? 'Añadir ayuno' : 'Editar ayuno'}</h2>
+    <div class="inline"><label class="f">Inicio<input type="datetime-local" id="m-start" value="${toLocalInput(base.start)}"></label><label class="f">Fin<input type="datetime-local" id="m-end" value="${toLocalInput(base.end)}"></label></div>
+    <label class="f">Objetivo<select id="m-goal">${goalOptions(base.goal)}</select></label>
+    <label class="f">Nota <span class="hint">opcional</span><textarea id="m-note" maxlength="300">${esc(base.note)}</textarea></label>
+    <div class="muted" id="m-dur"></div><div class="err" id="m-err"></div>
+    <div class="sheet-actions">${isNew ? '' : '<button class="btn ghost danger" id="m-del">Eliminar</button><span class="spacer"></span>'}<button class="btn" data-close>Cancelar</button><button class="btn primary" id="m-save">Guardar</button></div>`,
+    (ov, close) => {
+      const upd = () => { const a = fromLocalInput(ov.querySelector('#m-start').value), b = fromLocalInput(ov.querySelector('#m-end').value); ov.querySelector('#m-dur').textContent = a && b && b > a ? 'Duración: ' + dur(b - a) : ''; };
+      ov.querySelectorAll('input[type=datetime-local]').forEach(i => i.oninput = upd); upd();
+      ov.querySelector('#m-save').onclick = () => {
+        const a = fromLocalInput(ov.querySelector('#m-start').value), b = fromLocalInput(ov.querySelector('#m-end').value), err = ov.querySelector('#m-err');
+        if (!a || !b) return err.textContent = 'Escribe fechas y horas válidas.';
+        if (b <= a) return err.textContent = 'El fin tiene que ser posterior al inicio.';
+        if (b - a > 14 * DAY) return err.textContent = 'Un ayuno no puede durar más de 14 días. Revisa las fechas.';
+        if (b > Date.now() + MIN) return err.textContent = 'El fin no puede estar en el futuro.';
+        const data = { start: a, end: b, goal: +ov.querySelector('#m-goal').value, note: ov.querySelector('#m-note').value.trim() };
+        data.u = now_(); if (isNew) S.fasts.push({ id: uid(), ...data }); else { Object.assign(f, data); delete f.demo; }
+        save(); close(); render(); toast(isNew ? 'Ayuno añadido' : 'Cambios guardados');
+      };
+      if (!isNew) ov.querySelector('#m-del').onclick = () => { close(); confirmBox('¿Eliminar este ayuno?', dur(f.end - f.start) + ' del ' + fmtDL.format(f.end) + '. No se puede deshacer.', 'Eliminar', () => { S.fasts = S.fasts.filter(x => x !== f); tomb(f.id); save(); render(); toast('Ayuno eliminado'); }); };
+    });
+}
+
+/* ---------- notifications ---------- */
+async function askNotif(silent) {
+  if (!('Notification' in window)) return false;
+  try { const p = Notification.permission === 'default' ? await Notification.requestPermission() : Notification.permission; return p === 'granted'; }
+  catch (e) { return false; }
+}
+async function notifyGoal(cur) {
+  toast('¡Has llegado a tu objetivo de ' + cur.goal + ' h!');
+  try { navigator.vibrate && navigator.vibrate([200, 100, 200]); } catch (e) {}
+  if (!S.notify || !('Notification' in window) || Notification.permission !== 'granted') return;
+  const title = '¡Objetivo cumplido! 🎉', body = 'Llevas ' + cur.goal + ' h de ayuno. Puedes romperlo cuando quieras.';
+  try {
+    const reg = navigator.serviceWorker && await navigator.serviceWorker.getRegistration();
+    if (reg) reg.showNotification(title, { body, icon: 'icon-192.png', badge: 'icon-192.png', tag: 'goal' });
+    else new Notification(title, { body });
+  } catch (e) {}
+}
+
+/* ---------- export / import ---------- */
+function exportData() {
+  const { current, ...rest } = S;
+  return JSON.stringify({ app: 'reloj-ayuno', exportedAt: new Date().toISOString(), ...rest, current }, null, 1);
+}
+function importData(text) {
+  let d; try { d = JSON.parse(text); } catch (e) { toast('El archivo no es una copia válida'); return; }
+  if (!d || !Array.isArray(d.fasts)) { toast('El archivo no tiene ayunos que importar'); return; }
+  const clean = d.fasts.filter(f => f && isFinite(f.start) && isFinite(f.end) && f.end > f.start).map(f => ({ id: f.id || uid(), start: +f.start, end: +f.end, goal: +f.goal || 16, note: String(f.note || '').slice(0, 300), ...(f.demo ? { demo: true } : {}) }));
+  const old = [...S.fasts, ...S.weights].map(x => x.id), oldDel = S.deleted;
+  confirmBox('¿Importar copia?', 'Se reemplazarán tus datos actuales por ' + clean.length + ' ayunos del archivo.', 'Importar', () => {
+    S = Object.assign(defaults(), { deleted: Object.assign({}, oldDel), plan: d.plan || '16:8', customH: +d.customH || 16, theme: d.theme || 'auto', fasts: clean, seeded: true,
+      weights: Array.isArray(d.weights) ? d.weights.filter(w => w && /^\d{4}-\d\d-\d\d$/.test(w.date) && isFinite(w.kg)).map(w => ({ id: w.id || uid(), date: w.date, kg: +w.kg })) : [],
+      current: d.current && isFinite(d.current.start) ? { start: +d.current.start, goal: +d.current.goal || 16, notified: true } : null });
+    const t = now_(), keep = new Set([...S.fasts, ...S.weights].map(x => x.id)); S.fasts.forEach(f => f.u = t); S.weights.forEach(w => w.u = t); S.curU = S.prefsU = t;
+    old.forEach(id => { if (!keep.has(id)) tomb(id); });
+    save(); render(); toast('Copia importada');
+  });
+}
+
+
+/* ---------- sync (JSONBin) ---------- */
+// La clave vive solo en este dispositivo (otra entrada de localStorage) y nunca se exporta.
+const Sync = (() => {
+  const CK = KEY + '.sync', API = 'https://api.jsonbin.io/v3/b';
+  let cfg = null, timer = null, busy = false, again = false, status = '', lastOk = 0, failed = false;
+  try { cfg = JSON.parse(localStorage.getItem(CK) || 'null'); } catch (e) {}
+  // Enlace de configuración: abrir la app con #k=CLAVE&b=BIN configura este dispositivo una vez, sin pedir nada.
+  try {
+    const h = new URLSearchParams(location.hash.slice(1));
+    if (h.get('k') && h.get('b')) {
+      cfg = { ktype: h.get('t') === 'master' ? 'master' : 'access', key: h.get('k'), bin: h.get('b') };
+      localStorage.setItem(CK, JSON.stringify(cfg));
+      history.replaceState(null, '', location.pathname + location.search);
+    }
+  } catch (e) {}
+  const on = () => !!(cfg && cfg.key && cfg.bin);
+  const hdr = (json) => { const h = { [cfg.ktype === 'master' ? 'X-Master-Key' : 'X-Access-Key']: cfg.key }; if (json) h['Content-Type'] = 'application/json'; return h; };
+  function payload() {
+    const real = x => !x.demo;
+    return { app: 'reloj-ayuno', v: 1, savedAt: new Date().toISOString(), plan: S.plan, customH: S.customH, prefsU: S.prefsU || 0,
+      current: S.current, curU: S.curU || 0, deleted: S.deleted || {}, fasts: S.fasts.filter(real), weights: S.weights.filter(real) };
+  }
+  function mergeList(a, b, del) {
+    const m = new Map();
+    for (const x of [...a, ...b]) { if (!x || !x.id) continue; const o = m.get(x.id); if (!o || (x.u || 0) > (o.u || 0)) m.set(x.id, x); }
+    return [...m.values()].filter(x => !(del[x.id] && del[x.id] >= (x.u || 0)));
+  }
+  function merge(r) {
+    if (!r || typeof r !== 'object' || (r.app && r.app !== 'reloj-ayuno')) return;
+    if ((r.fasts || []).length || (r.weights || []).length || r.current) clearDemo();
+    const del = Object.assign({}, r.deleted || {});
+    for (const [k, v] of Object.entries(S.deleted || {})) del[k] = Math.max(del[k] || 0, v);
+    const cutoff = Date.now() - 365 * DAY; for (const k in del) if (del[k] < cutoff) delete del[k];
+    S.deleted = del;
+    S.fasts = mergeList(S.fasts.filter(x => !x.demo), r.fasts || [], del).concat(S.fasts.filter(x => x.demo));
+    S.weights = mergeList(S.weights.filter(x => !x.demo), r.weights || [], del).concat(S.weights.filter(x => x.demo));
+    if ((r.curU || 0) > (S.curU || 0)) { S.current = r.current || null; S.curU = r.curU; }
+    if ((r.prefsU || 0) > (S.prefsU || 0)) { S.plan = r.plan || S.plan; S.customH = +r.customH || S.customH; S.prefsU = r.prefsU; }
+  }
+  async function req(method, url, body) {
+    const res = await fetch(url, { method, headers: Object.assign(hdr(!!body), method === 'GET' ? { 'X-Bin-Meta': 'false' } : {}), body: body ? JSON.stringify(body) : undefined, cache: 'no-store' });
+    if (!res.ok) {
+      let msg = ''; try { msg = (await res.json()).message || ''; } catch (e) {}
+      const e = new Error(res.status === 401 || res.status === 403 ? 'La clave no es válida o no tiene permiso para este bin.' : res.status === 404 ? 'No existe un bin con ese ID.' : res.status === 429 ? 'JSONBin ha limitado las peticiones. Se reintentará más tarde.' : (msg || 'Error ' + res.status));
+      e.status = res.status; throw e;
+    }
+    return res.json();
+  }
+  async function run() {
+    if (!on()) return;
+    if (busy) { again = true; return; }
+    if (!navigator.onLine) { status = 'Sin conexión. Se sincronizará al volver.'; ui(); return; }
+    busy = true; status = 'Sincronizando…'; ui();
+    try {
+      const remote = await req('GET', API + '/' + cfg.bin + '/latest');
+      const before = JSON.stringify(payload());
+      merge(remote); save(true);
+      const p = payload(); const changedLocal = JSON.stringify(p) !== before;
+      const rs = JSON.stringify(Object.assign({}, remote, { savedAt: 0 })), ls = JSON.stringify(Object.assign({}, p, { savedAt: 0 }));
+      if (rs !== ls) await req('PUT', API + '/' + cfg.bin, p);
+      lastOk = Date.now(); failed = false; status = 'Sincronizado a las ' + fmtT.format(lastOk);
+      if (changedLocal) render();
+    } catch (e) { failed = true; status = 'No se pudo sincronizar: ' + e.message; }
+    busy = false; ui();
+    if (again) { again = false; run(); }
+  }
+  function schedule() { if (!on()) return; clearTimeout(timer); timer = setTimeout(run, 1200); }
+  async function connect(ktype, key, bin) {
+    cfg = { ktype, key: key.trim(), bin: bin.trim() };
+    if (!cfg.bin) {
+      clearDemo();
+      const res = await fetch(API, { method: 'POST', headers: Object.assign(hdr(true), { 'X-Bin-Private': 'true', 'X-Bin-Name': 'reloj-ayuno' }), body: JSON.stringify(payload()) });
+      if (!res.ok) { const st = res.status; cfg = null; throw new Error(st === 401 || st === 403 ? 'La clave no es válida o no tiene permiso para crear bins.' : 'JSONBin respondió con error ' + st + '.'); }
+      cfg.bin = (await res.json()).metadata.id;
+    } else {
+      try { const r = await req('GET', API + '/' + cfg.bin + '/latest'); if (!r || (r.app && r.app !== 'reloj-ayuno')) throw new Error('Ese bin no contiene datos de esta app.'); clearDemo(); }
+      catch (e) { cfg = null; throw e; }
+    }
+    try { localStorage.setItem(CK, JSON.stringify(cfg)); } catch (e) {}
+    await run();
+  }
+  function disconnect() { cfg = null; try { localStorage.removeItem(CK); } catch (e) {} status = ''; ui(); }
+  function ui() {
+    const badge = $('#sync-badge'); if (!badge) return;
+    $('#sync-off').hidden = on(); $('#sync-on').hidden = !on();
+    badge.textContent = !on() ? 'Desactivada' : failed ? 'Con error' : 'Activada';
+    badge.className = 'badge ' + (!on() ? 'no' : failed ? 'demo' : 'ok');
+    if (on()) { $('#sync-bin-show').textContent = cfg.bin; $('#sync-status').textContent = status; }
+  }
+  setInterval(() => { if (on() && !document.hidden) run(); }, 60e3);
+  window.addEventListener('online', () => run());
+  return { on, run, schedule, pull: run, connect, disconnect, ui, bin: () => cfg && cfg.bin };
+})();
+
+/* ---------- render ---------- */
+function render() {
+  $('#demo-banner').hidden = !hasDemo();
+  if (view === 'timer') renderTimer();
+  if (view === 'stats') renderStats();
+  if (view === 'history') renderHistory();
+  if (view === 'settings') renderSettings();
+  Sync.ui();
+}
+
+/* ---------- events ---------- */
+function bind() {
+  document.querySelectorAll('.tab').forEach(t => t.onclick = () => show(t.dataset.view));
+  $('#btn-main').onclick = () => S.current ? endFast() : startFast();
+  $('#plans').addEventListener('click', e => {
+    const b = e.target.closest('.plan'); if (!b) return;
+    S.plan = b.dataset.plan; S.prefsU = now_(); save();
+    if (S.plan === 'libre') { show('settings'); setTimeout(() => $('#custom-h').focus(), 50); toast('Elige tus horas en "Objetivo personalizado"'); return; }
+    if (S.current) toast('Plan cambiado. Para el ayuno en curso, toca "Objetivo".');
+    render();
+  });
+  $('#btn-clear-demo').onclick = () => { clearDemo(); render(); toast('Ejemplos borrados'); };
+  $('#range-seg').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; range = +b.dataset.range; selDay = null; document.querySelectorAll('#range-seg button').forEach(x => x.setAttribute('aria-pressed', x === b)); renderStats(); });
+  $('#btn-add').onclick = () => editFast(null);
+  $('#w-date').value = ymd(new Date());
+  $('#weight-form').addEventListener('submit', e => {
+    e.preventDefault();
+    const date = $('#w-date').value, kg = parseFloat(String($('#w-kg').value).replace(',', '.'));
+    if (!date || !(kg > 20 && kg < 400)) { toast('Escribe un peso válido en kg'); return; }
+    S.weights.filter(w => w.date === date).forEach(w => tomb(w.id)); S.weights = S.weights.filter(w => w.date !== date); S.weights.push({ id: uid(), date, kg: Math.round(kg * 10) / 10, u: now_() });
+    save(); $('#w-kg').value = ''; renderStats(); toast('Peso guardado');
+  });
+  $('#theme-seg').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; S.theme = b.dataset.themeOpt; save(true); applyTheme(); render(); });
+  $('#custom-h').addEventListener('change', e => { const v = Math.min(168, Math.max(1, +e.target.value || 16)); S.customH = v; S.plan = 'libre'; S.prefsU = now_(); save(); toast('Plan libre: ' + v + ' h'); });
+  $('#btn-notif').onclick = async () => {
+    if (S.notify && Notification.permission === 'granted') { S.notify = false; save(); renderSettings(); toast('Avisos desactivados'); return; }
+    const ok = await askNotif(); S.notify = ok; save(); renderSettings();
+    toast(ok ? 'Avisos activados' : 'No se pudieron activar los avisos');
+  };
+  $('#btn-export').onclick = () => {
+    try {
+      const blob = new Blob([exportData()], { type: 'application/json' }), a = document.createElement('a');
+      a.href = URL.createObjectURL(blob); a.download = 'ayuno-copia-' + ymd(new Date()) + '.json'; document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 2000); toast('Copia descargada');
+    } catch (e) { toast('No se pudo descargar. Usa "Copiar texto".'); }
+  };
+  $('#btn-copy').onclick = () => {
+    const txt = exportData(), ta = $('#export-text');
+    ta.value = txt; ta.hidden = false;
+    navigator.clipboard?.writeText(txt).then(() => toast('Copia copiada al portapapeles'), () => { ta.select(); toast('Selecciona el texto y cópialo'); }) ?? (ta.select(), toast('Selecciona el texto y cópialo'));
+  };
+  $('#file-import').addEventListener('change', e => { const f = e.target.files[0]; if (!f) return; const r = new FileReader(); r.onload = () => importData(r.result); r.readAsText(f); e.target.value = ''; });
+  $('#btn-wipe').onclick = () => confirmBox('¿Borrar todos los datos?', 'Se eliminarán tu historial, el peso y los ajustes de este dispositivo. No se puede deshacer.', 'Borrar todo', () => { const t = S.theme, gone = [...S.fasts, ...S.weights].map(x => x.id), del = S.deleted; S = defaults(); S.seeded = true; S.theme = t; S.deleted = del; gone.forEach(tomb); S.curU = S.prefsU = now_(); save(); render(); toast('Datos borrados'); });
+  $('#btn-sync-on').onclick = async () => {
+    const key = $('#sync-key').value.trim(), bin = $('#sync-bin').value.trim(), err = $('#sync-err');
+    if (!/^\$2[aby]\$\d\d\$.{20,}$/.test(key)) { err.textContent = 'Pega tu clave de JSONBin. Empieza por $2a$10$.'; return; }
+    if (bin && !/^[a-f0-9]{24}$/i.test(bin)) { err.textContent = 'El ID del bin tiene 24 caracteres (números y letras a-f).'; return; }
+    err.textContent = ''; const b = $('#btn-sync-on'); b.disabled = true; b.textContent = 'Conectando…';
+    try { await Sync.connect($('#sync-ktype').value, key, bin); $('#sync-key').value = ''; render(); toast(bin ? 'Conectado. Datos unidos con tu bin.' : 'Bin creado. Pega su ID en tus otros dispositivos.'); }
+    catch (e) { err.textContent = e.message === 'Failed to fetch' ? 'No se pudo contactar con JSONBin. Revisa la conexión.' : e.message; }
+    b.disabled = false; b.textContent = 'Conectar';
+  };
+  $('#btn-sync-now').onclick = () => Sync.run();
+  $('#btn-sync-copy').onclick = () => { const id = Sync.bin(); navigator.clipboard?.writeText(id).then(() => toast('ID copiado'), () => toast('Mantén pulsado el ID para copiarlo')); };
+  $('#btn-sync-off').onclick = () => confirmBox('¿Desconectar este dispositivo?', 'Tus datos se quedan aquí y en JSONBin, pero este dispositivo dejará de sincronizar.', 'Desconectar', () => { Sync.disconnect(); toast('Dispositivo desconectado'); });
+  let resizeT; window.addEventListener('resize', () => { clearTimeout(resizeT); resizeT = setTimeout(() => view === 'stats' && renderStats(), 150); });
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) { render(); Sync.pull(); } });
+  // Install prompt (Android/desktop Chrome)
+  let deferred = null;
+  window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); deferred = e; $('#btn-install').hidden = false; });
+  $('#btn-install').onclick = async () => { if (!deferred) return; deferred.prompt(); await deferred.userChoice; deferred = null; $('#btn-install').hidden = true; };
+  if (window.matchMedia('(display-mode: standalone)').matches) $('#install-card').hidden = true;
+}
+
+load(); save(); applyTheme(); bind();
+let startTab = 'timer'; try { startTab = localStorage.getItem(KEY + '.tab') || 'timer'; } catch (e) {}
+if (location.hash && ['timer', 'stats', 'history', 'settings'].includes(location.hash.slice(1))) startTab = location.hash.slice(1);
+show(startTab);
+Sync.run();
+setInterval(() => { if (view === 'timer' && !document.hidden) renderTimer(); else if (S.current && !S.current.notified && Date.now() - S.current.start >= S.current.goal * H) { S.current.notified = true; save(); notifyGoal(S.current); } }, 1000);
+if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) { navigator.serviceWorker.register('sw.js').catch(() => {}); }
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', applyTheme);
+})();
+</script>
