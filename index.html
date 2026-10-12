@@ -240,6 +240,30 @@ label.f { display: flex; flex-direction: column; gap: 6px; font-weight: 700; fon
   .hist-item { grid-template-columns: 1fr auto; }
   .hist-item .badge { grid-column: 1 / -1; justify-self: start; }
 }
+/* peso cifrado */
+.weight-card { margin-top: 20px; }
+.lockbox { display: flex; flex-direction: column; gap: 12px; max-width: 420px; margin: 0 auto; padding: 8px 0; text-align: center; }
+.lockbox .f { text-align: left; }
+.lock-ico { width: 46px; height: 46px; margin: 0 auto; color: var(--fast); }
+.w-tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-bottom: 14px; }
+.w-tiles .tile { padding: 12px 14px; background: var(--surface-2); }
+.w-tiles .tile .v { font-size: 1.45rem; }
+.tile .s { font-size: .78rem; color: var(--muted); }
+.v.down { color: var(--ok); } .v.up { color: var(--danger); }
+.goalbar { height: 8px; border-radius: 99px; background: var(--line); overflow: hidden; margin-top: 6px; }
+.goalbar b { display: block; height: 100%; background: var(--ok); border-radius: 99px; }
+.chart .wdots { fill: var(--fast); opacity: .45; }
+.chart .wgoal { stroke: var(--ok); stroke-width: 1.5; stroke-dasharray: 5 4; }
+.w-list { list-style: none; margin: 8px 0 0; padding: 0; }
+.w-list li { display: grid; grid-template-columns: 1fr auto auto auto; gap: 12px; align-items: center; padding: 9px 0; border-top: 1px solid var(--line); font-size: .95rem; }
+.w-list .kg { font-family: var(--f-mono); font-weight: 500; }
+.w-list .df { font-family: var(--f-mono); font-size: .82rem; min-width: 52px; text-align: right; }
+.w-list .df.down { color: var(--ok); } .w-list .df.up { color: var(--danger); }
+.icon-btn { border: 0; background: transparent; color: var(--muted); cursor: pointer; width: 34px; height: 34px; border-radius: 8px; font-size: 1.1rem; }
+.icon-btn:hover { background: var(--surface-2); color: var(--danger); }
+details.w-more { margin-top: 14px; border-top: 1px solid var(--line); padding-top: 10px; }
+details.w-more summary { cursor: pointer; font-weight: 700; color: var(--muted); padding: 6px 0; }
+@media (max-width: 560px) { .w-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
 </style>
 </head>
@@ -302,6 +326,10 @@ label.f { display: flex; flex-direction: column; gap: 6px; font-weight: 700; fon
         </div>
       </div>
     </div>
+    <section class="card weight-card" id="weight-sec" aria-labelledby="w-title">
+      <div class="card-head"><h2 id="w-title">Peso</h2><div class="btns"><span class="badge no" id="w-state">Protegido</span><button class="btn sm" id="w-lock" hidden>Bloquear</button></div></div>
+      <div id="w-body"></div>
+    </section>
   </section>
 
   <!-- STATS -->
@@ -325,19 +353,10 @@ label.f { display: flex; flex-direction: column; gap: 6px; font-weight: 700; fon
         <div class="chart" id="chart-days"></div>
         <div class="chart-cap" id="chart-cap">Toca una barra para ver el detalle.</div>
       </div>
-      <div class="two">
+      <div>
         <div class="card">
           <div class="card-head"><h2>Media por día de la semana</h2></div>
           <div class="dow" id="dow"></div>
-        </div>
-        <div class="card">
-          <div class="card-head"><h2>Peso</h2><span class="muted" id="weight-delta"></span></div>
-          <div class="chart" id="chart-weight"></div>
-          <form class="inline" id="weight-form" style="margin-top:12px">
-            <label class="f">Fecha<input type="date" id="w-date" required></label>
-            <label class="f">Kg<input type="number" id="w-kg" step="0.1" min="20" max="400" inputmode="decimal" placeholder="72.5" required></label>
-            <button class="btn" type="submit" style="flex:0 0 auto">Añadir</button>
-          </form>
         </div>
       </div>
     </div>
@@ -446,7 +465,7 @@ const STAGES = [
 ];
 
 /* ---------- storage ---------- */
-const defaults = () => ({ v: 1, plan: '16:8', customH: 16, current: null, curU: 0, prefsU: 0, deleted: {}, fasts: [], weights: [], theme: 'auto', notify: false, seeded: false });
+const defaults = () => ({ v: 1, plan: '16:8', customH: 16, current: null, curU: 0, prefsU: 0, deleted: {}, fasts: [], weights: [], wvault: null, wvaultU: 0, theme: 'auto', notify: false, seeded: false });
 let S;
 function load() {
   try { const raw = localStorage.getItem(KEY); S = raw ? Object.assign(defaults(), JSON.parse(raw)) : null; } catch (e) { S = null; }
@@ -467,7 +486,6 @@ function seedDemo() {
     const len = (13.5 + rnd() * 5.5 + (d % 7 === 0 ? 2 : 0)) * H;
     const goal = d > 20 ? 14 : 16;
     fasts.push({ id: uid(), start: end.getTime() - len, end: end.getTime(), goal, note: '', demo: true });
-    if (d % 4 === 0) { const wd = new Date(end); weights.push({ id: uid(), date: ymd(wd), kg: +(78.4 - (42 - d) * 0.07 + (rnd() - .5) * .4).toFixed(1), demo: true }); }
   }
   S.fasts = fasts; S.weights = weights; S.seeded = true;
 }
@@ -653,7 +671,6 @@ function renderStats() {
   for (const f of inR) { const i = (new Date(f.end).getDay() + 6) % 7; sums[i] += (f.end - f.start) / H; cnt[i]++; }
   const avgs = sums.map((s, i) => cnt[i] ? s / cnt[i] : 0), mx = Math.max(1, ...avgs);
   $('#dow').innerHTML = ['L', 'M', 'X', 'J', 'V', 'S', 'D'].map((n, i) => `<div><em>${cnt[i] ? (Math.round(avgs[i] * 10) / 10).toLocaleString('es-ES') : ''}</em><b style="height:${(avgs[i] / mx * 80).toFixed(1)}px;${cnt[i] ? '' : 'background:var(--line)'}"></b>${n}</div>`).join('');
-  drawWeight();
 }
 function drawDays(from, today) {
   const box = $('#chart-days'); const W = Math.max(280, box.clientWidth || 600), Hh = 230;
@@ -694,27 +711,6 @@ function capDay() {
   if (!e) { cap.innerHTML = `<b>${fmtDL.format(selDay)}</b> · sin ayuno registrado`; return; }
   cap.innerHTML = `<b>${fmtDL.format(selDay)}</b> · ${dur(e.hours * H)} ${e.met ? '· objetivo cumplido' : '· objetivo ' + e.goal + ' h'}` + (e.list.length > 1 ? ` (${e.list.length} ayunos)` : '');
 }
-function drawWeight() {
-  const box = $('#chart-weight'); const ws = S.weights.slice().sort((a, b) => a.date.localeCompare(b.date));
-  if (ws.length < 2) { box.innerHTML = `<div class="empty" style="padding:18px 0">${ws.length ? 'Añade otro registro para ver la evolución.' : 'Registra tu peso para ver cómo evoluciona.'}</div>`; $('#weight-delta').textContent = ws.length ? ws[0].kg + ' kg' : ''; return; }
-  const W = Math.max(260, box.clientWidth || 400), Hh = 150, pl = 38, pr = 12, pt = 14, pb = 24;
-  const ts = ws.map(w => new Date(w.date + 'T12:00').getTime()), kg = ws.map(w => w.kg);
-  let lo = Math.floor(Math.min(...kg) - .5), hi = Math.ceil(Math.max(...kg) + .5);
-  const t0 = ts[0], t1 = ts[ts.length - 1] || t0 + 1;
-  const x = t => pl + (t - t0) / Math.max(1, t1 - t0) * (W - pl - pr), y = v => pt + (hi - v) / (hi - lo) * (Hh - pt - pb);
-  let s = ''; const stp = Math.max(1, Math.ceil((hi - lo) / 3));
-  for (let v = lo; v <= hi; v += stp) s += `<line class="grid" x1="${pl}" x2="${W - pr}" y1="${y(v)}" y2="${y(v)}"/><text x="${pl - 6}" y="${y(v) + 4}" text-anchor="end">${v}</text>`;
-  const pts = ts.map((t, i) => x(t).toFixed(1) + ',' + y(kg[i]).toFixed(1));
-  s += `<polygon class="warea" points="${x(t0)},${y(lo)} ${pts.join(' ')} ${x(t1)},${y(lo)}"/>`;
-  s += `<polyline class="wline" points="${pts.join(' ')}"/>`;
-  ts.forEach((t, i) => { if (i === ts.length - 1) s += `<circle class="wend" cx="${x(t)}" cy="${y(kg[i])}" r="5"/>`; });
-  s += `<text x="${pl}" y="${Hh - 6}">${fmtDM.format(t0).replace('.', '')}</text><text x="${W - pr}" y="${Hh - 6}" text-anchor="end">${fmtDM.format(t1).replace('.', '')}</text>`;
-  s += `<text x="${Math.min(x(t1), W - pr) - 8}" y="${y(kg[kg.length - 1]) - 10}" text-anchor="end" style="fill:var(--ink);font-weight:500">${kg[kg.length - 1].toLocaleString('es-ES')} kg</text>`;
-  box.innerHTML = `<svg viewBox="0 0 ${W} ${Hh}" height="${Hh}" role="img" aria-label="Evolución del peso">${s}</svg>`;
-  const d = Math.round((kg[kg.length - 1] - kg[0]) * 10) / 10;
-  $('#weight-delta').textContent = (d > 0 ? '+' : '') + d.toLocaleString('es-ES') + ' kg desde ' + fmtDM.format(t0).replace('.', '');
-}
-
 /* ---------- history ---------- */
 function renderHistory() {
   const list = fasts();
@@ -859,13 +855,208 @@ function importData(text) {
   confirmBox('¿Importar copia?', 'Se reemplazarán tus datos actuales por ' + clean.length + ' ayunos del archivo.', 'Importar', () => {
     S = Object.assign(defaults(), { deleted: Object.assign({}, oldDel), plan: d.plan || '16:8', customH: +d.customH || 16, theme: d.theme || 'auto', fasts: clean, seeded: true,
       weights: Array.isArray(d.weights) ? d.weights.filter(w => w && /^\d{4}-\d\d-\d\d$/.test(w.date) && isFinite(w.kg)).map(w => ({ id: w.id || uid(), date: w.date, kg: +w.kg })) : [],
+      wvault: d.wvault && d.wvault.ct ? d.wvault : null, wvaultU: d.wvault ? Date.now() : 0,
       current: d.current && isFinite(d.current.start) ? { start: +d.current.start, goal: +d.current.goal || 16, notified: true } : null });
     const t = now_(), keep = new Set([...S.fasts, ...S.weights].map(x => x.id)); S.fasts.forEach(f => f.u = t); S.weights.forEach(w => w.u = t); S.curU = S.prefsU = t;
     old.forEach(id => { if (!keep.has(id)) tomb(id); });
-    save(); render(); toast('Copia importada');
+    save(); render(); Weight.lock(); toast('Copia importada');
   });
 }
 
+
+
+/* ---------- peso cifrado ---------- */
+// Los datos de peso se guardan cifrados con AES-GCM. La clave se deriva de tu contraseña (PBKDF2, 310.000 vueltas)
+// y solo vive en memoria mientras la sección está desbloqueada. Ni el móvil ni JSONBin guardan la contraseña.
+const Weight = (() => {
+  const ITER = 310000, AUTO_LOCK = 5 * MIN;
+  const te = new TextEncoder(), td = new TextDecoder();
+  const b64 = buf => btoa(String.fromCharCode(...new Uint8Array(buf)));
+  const unb64 = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
+  let key = null, data = null, range = 90, showAll = false, hiddenAt = 0;
+  const empty = () => ({ entries: [], deleted: {}, heightCm: null, goalKg: null, prefU: 0 });
+  async function derive(pass, salt) {
+    const base = await crypto.subtle.importKey('raw', te.encode(pass), 'PBKDF2', false, ['deriveKey']);
+    return crypto.subtle.deriveKey({ name: 'PBKDF2', salt, iterations: ITER, hash: 'SHA-256' }, base, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
+  }
+  async function decrypt(k, v) {
+    const pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: unb64(v.iv) }, k, unb64(v.ct));
+    return Object.assign(empty(), JSON.parse(td.decode(pt)));
+  }
+  async function persist() {
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const ct = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, te.encode(JSON.stringify(data)));
+    S.wvault = { v: 1, alg: 'PBKDF2-SHA256/AES-GCM', iter: ITER, salt: S.wvault.salt, iv: b64(iv), ct: b64(ct) };
+    S.wvaultU = now_(); S.weights = []; save();
+  }
+  function mergeData(a, b) {
+    const del = Object.assign({}, a.deleted); for (const [k, v] of Object.entries(b.deleted || {})) del[k] = Math.max(del[k] || 0, v);
+    const m = new Map(); for (const e of [...a.entries, ...b.entries]) { const o = m.get(e.id); if (!o || (e.u || 0) > (o.u || 0)) m.set(e.id, e); }
+    const out = Object.assign({}, b, { deleted: del, entries: [...m.values()].filter(e => !(del[e.id] && del[e.id] >= (e.u || 0))) });
+    if ((a.prefU || 0) > (b.prefU || 0)) { out.heightCm = a.heightCm; out.goalKg = a.goalKg; out.prefU = a.prefU; }
+    return out;
+  }
+  const sorted = () => data.entries.slice().sort((a, b) => a.date.localeCompare(b.date));
+  const fmtKg = (v, d = 1) => (Math.round(v * 10 ** d) / 10 ** d).toLocaleString('es-ES', { minimumFractionDigits: d, maximumFractionDigits: d });
+  const signed = v => (v > 0.04 ? '+' : v < -0.04 ? '−' : '') + fmtKg(Math.abs(v));
+  const tOf = e => new Date(e.date + 'T12:00').getTime();
+  function trend(list) { // media móvil de 7 días
+    return list.map((e, i) => { const t = tOf(e); const w = list.filter((x, j) => j <= i && t - tOf(x) < 7 * DAY); return { t, v: w.reduce((a, x) => a + x.kg, 0) / w.length }; });
+  }
+  function slopePerWeek(list) {
+    const cut = Date.now() - 28 * DAY, pts = list.filter(e => tOf(e) >= cut); if (pts.length < 2) return null;
+    const xs = pts.map(e => tOf(e) / DAY), ys = pts.map(e => e.kg), mx = xs.reduce((a, b) => a + b) / xs.length, my = ys.reduce((a, b) => a + b) / ys.length;
+    let n = 0, d = 0; xs.forEach((x, i) => { n += (x - mx) * (ys[i] - my); d += (x - mx) ** 2; }); return d ? n / d * 7 : null;
+  }
+  const bmiCat = b => b < 18.5 ? 'Bajo peso' : b < 25 ? 'Normal' : b < 30 ? 'Sobrepeso' : 'Obesidad';
+  const cls = v => v < -0.04 ? 'down' : v > 0.04 ? 'up' : '';
+
+  function setHeader() {
+    const st = $('#w-state'), lk = $('#w-lock');
+    st.textContent = key ? 'Desbloqueado' : S.wvault ? 'Protegido' : 'Sin contraseña';
+    st.className = 'badge ' + (key ? 'ok' : 'no'); lk.hidden = !key;
+  }
+  const LOCK_SVG = '<svg class="lock-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><rect x="4" y="10" width="16" height="11" rx="2.5"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/><circle cx="12" cy="15.5" r="1.4" fill="currentColor"/></svg>';
+  function renderSetup() {
+    const legacy = S.weights.filter(w => !w.demo).length;
+    $('#w-body').innerHTML = `<form class="lockbox" id="w-setup">${LOCK_SVG}
+      <h3>Protege tu peso con una contraseña</h3>
+      <p class="muted" style="margin:0">Tus registros de peso se guardan cifrados, también al sincronizar. Usa la misma contraseña en tus otros dispositivos.${legacy ? ' Se cifrarán también tus ' + legacy + ' registros actuales.' : ''}</p>
+      <label class="f">Contraseña<input type="password" id="w-p1" autocomplete="new-password" required></label>
+      <label class="f">Repite la contraseña<input type="password" id="w-p2" autocomplete="new-password" required></label>
+      <p class="muted" style="margin:0;font-size:.85rem"><b>Si la olvidas no se puede recuperar.</b> Nadie puede descifrar tus datos sin ella.</p>
+      <div class="err" id="w-err"></div>
+      <button class="btn primary" type="submit">Crear contraseña</button></form>`;
+    $('#w-setup').onsubmit = async e => {
+      e.preventDefault(); const p1 = $('#w-p1').value, p2 = $('#w-p2').value, err = $('#w-err');
+      if (p1.length < 4) return err.textContent = 'Usa al menos 4 caracteres.';
+      if (p1 !== p2) return err.textContent = 'Las contraseñas no coinciden.';
+      err.textContent = 'Cifrando…';
+      const salt = crypto.getRandomValues(new Uint8Array(16));
+      key = await derive(p1, salt); data = empty();
+      data.entries = S.weights.filter(w => !w.demo).map(w => ({ id: w.id, date: w.date, kg: w.kg, u: w.u || now_() }));
+      S.wvault = { salt: b64(salt) }; await persist();
+      toast('Contraseña creada. Tu peso está cifrado.'); render_();
+    };
+  }
+  function renderLocked() {
+    $('#w-body').innerHTML = `<form class="lockbox" id="w-unlock">${LOCK_SVG}
+      <h3>Sección protegida</h3>
+      <label class="f">Contraseña<input type="password" id="w-pass" autocomplete="current-password" required></label>
+      <div class="err" id="w-err"></div>
+      <button class="btn primary" type="submit">Desbloquear</button>
+      <button class="btn ghost sm" type="button" id="w-forgot">He olvidado la contraseña</button></form>`;
+    $('#w-unlock').onsubmit = async e => {
+      e.preventDefault(); const err = $('#w-err'); err.textContent = 'Comprobando…';
+      try { const k = await derive($('#w-pass').value, unb64(S.wvault.salt)); data = await decrypt(k, S.wvault); key = k; render_(); }
+      catch (x) { err.textContent = 'Contraseña incorrecta.'; $('#w-pass').select(); }
+    };
+    $('#w-forgot').onclick = () => confirmBox('¿Borrar los datos de peso?', 'Sin la contraseña no se pueden recuperar. Se borrarán tus registros de peso en todos tus dispositivos y podrás crear una contraseña nueva.', 'Borrar peso', () => { S.wvault = null; S.wvaultU = now_(); S.weights = []; save(); render_(); toast('Datos de peso borrados'); });
+  }
+  function renderOpen() {
+    const list = sorted(), last = list[list.length - 1], first = list[0];
+    const ref30 = list.find(e => tOf(e) >= Date.now() - 30 * DAY);
+    const sl = slopePerWeek(list), h = data.heightCm, bmi = last && h ? last.kg / (h / 100) ** 2 : null;
+    const goal = data.goalKg;
+    const tile = (v, l, s2, c = '') => `<div class="tile"><div class="v ${c}">${v}</div><div class="l">${l}</div>${s2 ? `<div class="s">${s2}</div>` : ''}</div>`;
+    let goalTile = tile('–', 'objetivo', 'Fíjalo en «Altura y objetivo»');
+    if (goal && last) {
+      const tot = first.kg - goal, done = first.kg - last.kg, pct = tot ? Math.max(0, Math.min(1, done / tot)) : 1, rem = last.kg - goal;
+      const eta = sl && Math.abs(rem) > .05 && Math.sign(sl) === -Math.sign(rem) && Math.abs(sl) > .05 ? Math.ceil(Math.abs(rem / sl)) : null;
+      goalTile = `<div class="tile"><div class="v">${Math.abs(rem) < .05 ? '¡Logrado!' : fmtKg(Math.abs(rem)) + '<small>kg</small>'}</div><div class="l">${rem > .05 ? 'te faltan para ' : rem < -.05 ? 'por debajo de ' : 'objetivo '}${fmtKg(goal)} kg</div><div class="goalbar"><b style="width:${(pct * 100).toFixed(0)}%"></b></div>${eta ? `<div class="s">≈ ${eta} ${eta === 1 ? 'semana' : 'semanas'} a este ritmo</div>` : ''}</div>`;
+    }
+    const dTot = last ? last.kg - first.kg : 0, d30 = last && ref30 ? last.kg - ref30.kg : 0;
+    const tiles = !last ? '' : `<div class="w-tiles">
+      ${tile(fmtKg(last.kg) + '<small>kg</small>', 'peso actual', relDay(tOf(last)))}
+      ${tile(signed(dTot) + '<small>kg</small>', 'cambio total', 'desde ' + fmtDM.format(tOf(first)).replace('.', ''), cls(dTot))}
+      ${tile(signed(d30) + '<small>kg</small>', 'últimos 30 días', '', cls(d30))}
+      ${tile(sl == null ? '–' : signed(sl) + '<small>kg/sem</small>', 'ritmo', 'tendencia de 4 semanas', sl == null ? '' : cls(sl))}
+      ${tile(bmi ? fmtKg(bmi) : '–', 'IMC', bmi ? bmiCat(bmi) : 'Añade tu altura')}
+      ${goalTile}</div>`;
+    const ent = list.slice().reverse(), shown = showAll ? ent : ent.slice(0, 6);
+    $('#w-body').innerHTML = `${tiles}
+      ${list.length ? `<div class="card-head" style="margin-bottom:6px"><span class="legend"><span><i style="background:var(--fast);opacity:.45;border-radius:50%"></i>Registros</span><span><i style="background:var(--fast);height:3px"></i>Tendencia 7 días</span>${goal ? '<span><i style="background:var(--ok);height:3px"></i>Objetivo</span>' : ''}</span>
+        <div class="seg" id="w-range"><button data-r="30" aria-pressed="${range === 30}">1 mes</button><button data-r="90" aria-pressed="${range === 90}">3 meses</button><button data-r="365" aria-pressed="${range === 365}">1 año</button><button data-r="0" aria-pressed="${range === 0}">Todo</button></div></div>
+      <div class="chart" id="w-chart"></div>` : ''}
+      <form class="inline" id="w-form" style="margin-top:14px">
+        <label class="f">Fecha<input type="date" id="w-date" value="${ymd(new Date())}" required></label>
+        <label class="f">Peso (kg)<input type="number" id="w-kg" step="0.1" min="20" max="400" inputmode="decimal" placeholder="${last ? String(last.kg) : '72.5'}" required></label>
+        <button class="btn primary" type="submit" style="flex:0 0 auto">Guardar peso</button></form>
+      ${ent.length ? `<ul class="w-list">${shown.map(e => { const i = list.indexOf(e), prev = list[i - 1], df = prev ? e.kg - prev.kg : null;
+        return `<li><span>${fmtD.format(tOf(e)).replace('.', '')}</span><span class="kg">${fmtKg(e.kg)} kg</span><span class="df ${df == null ? '' : cls(df)}">${df == null ? '' : signed(df)}</span><button class="icon-btn" data-del="${e.id}" aria-label="Borrar registro del ${e.date}">×</button></li>`; }).join('')}</ul>
+        ${ent.length > 6 ? `<button class="btn ghost sm" id="w-all">${showAll ? 'Ver menos' : 'Ver los ' + ent.length + ' registros'}</button>` : ''}` : '<p class="muted" style="text-align:center;margin:12px 0 0">Añade tu primer registro para ver la gráfica y tus estadísticas.</p>'}
+      <details class="w-more"><summary>Altura y objetivo · Contraseña</summary>
+        <form class="inline" id="w-prefs" style="margin-top:8px">
+          <label class="f">Altura (cm)<input type="number" id="w-h" min="100" max="250" step="1" inputmode="numeric" value="${h || ''}"></label>
+          <label class="f">Peso objetivo (kg)<input type="number" id="w-goal" min="30" max="300" step="0.1" inputmode="decimal" value="${goal || ''}"></label>
+          <button class="btn" type="submit" style="flex:0 0 auto">Guardar</button></form>
+        <form class="inline" id="w-chpw" style="margin-top:12px">
+          <label class="f">Nueva contraseña<input type="password" id="w-np" autocomplete="new-password"></label>
+          <button class="btn" type="submit" style="flex:0 0 auto">Cambiar contraseña</button></form>
+        <div class="err" id="w-err2"></div>
+      </details>`;
+    drawChart(list);
+    const rg = $('#w-range'); if (rg) rg.onclick = e => { const b = e.target.closest('button'); if (!b) return; range = +b.dataset.r; render_(); };
+    $('#w-form').onsubmit = async e => {
+      e.preventDefault(); const date = $('#w-date').value, kg = parseFloat(String($('#w-kg').value).replace(',', '.'));
+      if (!date || !(kg > 20 && kg < 400)) return toast('Escribe un peso válido en kg');
+      data.entries.filter(x => x.date === date).forEach(x => data.deleted[x.id] = now_());
+      data.entries = data.entries.filter(x => x.date !== date); data.entries.push({ id: uid(), date, kg: Math.round(kg * 10) / 10, u: now_() });
+      await persist(); render_(); toast('Peso guardado');
+    };
+    $('#w-body').querySelectorAll('[data-del]').forEach(b => b.onclick = () => {
+      const e = data.entries.find(x => x.id === b.dataset.del);
+      confirmBox('¿Borrar este registro?', fmtKg(e.kg) + ' kg del ' + fmtDL.format(tOf(e)) + '.', 'Borrar', async () => { data.deleted[e.id] = now_(); data.entries = data.entries.filter(x => x !== e); await persist(); render_(); });
+    });
+    const all = $('#w-all'); if (all) all.onclick = () => { showAll = !showAll; render_(); };
+    $('#w-prefs').onsubmit = async e => {
+      e.preventDefault(); const hv = +$('#w-h').value || null, gv = +String($('#w-goal').value).replace(',', '.') || null;
+      if (hv && (hv < 100 || hv > 250)) return $('#w-err2').textContent = 'La altura va en centímetros, por ejemplo 172.';
+      data.heightCm = hv; data.goalKg = gv; data.prefU = now_(); await persist(); render_(); toast('Guardado');
+    };
+    $('#w-chpw').onsubmit = async e => {
+      e.preventDefault(); const np = $('#w-np').value; if (np.length < 4) return $('#w-err2').textContent = 'Usa al menos 4 caracteres.';
+      const salt = crypto.getRandomValues(new Uint8Array(16)); key = await derive(np, salt); S.wvault = { salt: b64(salt) }; await persist();
+      render_(); toast('Contraseña cambiada. Úsala también en tus otros dispositivos.');
+    };
+  }
+  function drawChart(all) {
+    const box = $('#w-chart'); if (!box) return;
+    const from = range ? Date.now() - range * DAY : 0, list = all.filter(e => tOf(e) >= from);
+    if (list.length < 2) { box.innerHTML = `<div class="empty" style="padding:18px 0">Necesitas al menos dos registros en este periodo para ver la gráfica.</div>`; return; }
+    const tr = trend(all).filter(p => p.t >= from);
+    const W = Math.max(280, box.clientWidth || 600), Hh = 210, pl = 40, pr = 14, pt = 16, pb = 26;
+    const vals = list.map(e => e.kg).concat(data.goalKg ? [data.goalKg] : []);
+    const lo = Math.floor(Math.min(...vals) - .5), hi = Math.ceil(Math.max(...vals) + .5);
+    const t0 = tOf(list[0]), t1 = Math.max(tOf(list[list.length - 1]), t0 + DAY);
+    const x = t => pl + (t - t0) / (t1 - t0) * (W - pl - pr), y = v => pt + (hi - v) / (hi - lo) * (Hh - pt - pb);
+    const stp = Math.max(1, Math.ceil((hi - lo) / 4)); let s = '';
+    for (let v = lo; v <= hi; v += stp) s += `<line class="grid" x1="${pl}" x2="${W - pr}" y1="${y(v)}" y2="${y(v)}"/><text x="${pl - 6}" y="${y(v) + 4}" text-anchor="end">${v}</text>`;
+    if (data.goalKg) s += `<line class="wgoal" x1="${pl}" x2="${W - pr}" y1="${y(data.goalKg)}" y2="${y(data.goalKg)}"/>`;
+    const pts = tr.map(p => x(p.t).toFixed(1) + ',' + y(p.v).toFixed(1));
+    s += `<polygon class="warea" points="${x(tr[0].t)},${y(lo)} ${pts.join(' ')} ${x(tr[tr.length - 1].t)},${y(lo)}"/>`;
+    list.forEach(e => s += `<circle class="wdots" cx="${x(tOf(e)).toFixed(1)}" cy="${y(e.kg).toFixed(1)}" r="3"/>`);
+    s += `<polyline class="wline" points="${pts.join(' ')}"/>`;
+    const lp = tr[tr.length - 1]; s += `<circle class="wend" cx="${x(lp.t)}" cy="${y(lp.v)}" r="5"/>`;
+    s += `<text x="${pl}" y="${Hh - 6}">${fmtDM.format(t0).replace('.', '')}</text><text x="${W - pr}" y="${Hh - 6}" text-anchor="end">${fmtDM.format(t1).replace('.', '')}</text>`;
+    box.innerHTML = `<svg viewBox="0 0 ${W} ${Hh}" height="${Hh}" role="img" aria-label="Evolución del peso">${s}</svg>`;
+  }
+  function render_() { setHeader(); if (!S.wvault) renderSetup(); else if (!key) renderLocked(); else renderOpen(); }
+  function lock() { key = null; data = null; showAll = false; render_(); }
+  async function remoteChanged() {
+    if (!key || !S.wvault) { key = S.wvault ? key : null; data = key ? data : null; if (!document.activeElement || !$('#w-body').contains(document.activeElement)) render_(); return; }
+    try {
+      const incoming = await decrypt(key, S.wvault), merged = mergeData(data, incoming);
+      const ids = d => JSON.stringify(d.entries.map(e => e.id + ':' + e.u).sort());
+      data = merged; if (ids(merged) !== ids(incoming)) await persist();
+      if (!document.activeElement || !$('#w-body').contains(document.activeElement)) render_();
+    } catch (e) { key = null; data = null; render_(); toast('La contraseña del peso cambió en otro dispositivo. Desbloquea de nuevo.'); }
+  }
+  $('#w-lock').onclick = () => { lock(); toast('Peso bloqueado'); };
+  document.addEventListener('visibilitychange', () => { if (document.hidden) hiddenAt = Date.now(); else { if (key && hiddenAt && Date.now() - hiddenAt > AUTO_LOCK) lock(); hiddenAt = 0; } });
+  window.addEventListener('resize', () => { if (key) drawChart(sorted()); });
+  return { render: render_, lock, remoteChanged, available: () => !!(window.crypto && crypto.subtle) };
+})();
 
 /* ---------- sync (JSONBin) ---------- */
 // La clave vive solo en este dispositivo (otra entrada de localStorage) y nunca se exporta.
@@ -887,7 +1078,7 @@ const Sync = (() => {
   function payload() {
     const real = x => !x.demo;
     return { app: 'reloj-ayuno', v: 1, savedAt: new Date().toISOString(), plan: S.plan, customH: S.customH, prefsU: S.prefsU || 0,
-      current: S.current, curU: S.curU || 0, deleted: S.deleted || {}, fasts: S.fasts.filter(real), weights: S.weights.filter(real) };
+      current: S.current, curU: S.curU || 0, deleted: S.deleted || {}, fasts: S.fasts.filter(real), weights: S.wvault ? [] : S.weights.filter(real), wvault: S.wvault || null, wvaultU: S.wvaultU || 0 };
   }
   function mergeList(a, b, del) {
     const m = new Map();
@@ -902,7 +1093,8 @@ const Sync = (() => {
     const cutoff = Date.now() - 365 * DAY; for (const k in del) if (del[k] < cutoff) delete del[k];
     S.deleted = del;
     S.fasts = mergeList(S.fasts.filter(x => !x.demo), r.fasts || [], del).concat(S.fasts.filter(x => x.demo));
-    S.weights = mergeList(S.weights.filter(x => !x.demo), r.weights || [], del).concat(S.weights.filter(x => x.demo));
+    if (!S.wvault && !r.wvault) S.weights = mergeList(S.weights.filter(x => !x.demo), r.weights || [], del).concat(S.weights.filter(x => x.demo));
+    if ((r.wvaultU || 0) > (S.wvaultU || 0)) { S.wvault = r.wvault || null; S.wvaultU = r.wvaultU; if (S.wvault) S.weights = []; setTimeout(() => Weight.remoteChanged(), 0); }
     if ((r.curU || 0) > (S.curU || 0)) { S.current = r.current || null; S.curU = r.curU; }
     if ((r.prefsU || 0) > (S.prefsU || 0)) { S.plan = r.plan || S.plan; S.customH = +r.customH || S.customH; S.prefsU = r.prefsU; }
   }
@@ -989,14 +1181,6 @@ function bind() {
   $('#btn-clear-demo').onclick = () => { clearDemo(); render(); toast('Ejemplos borrados'); };
   $('#range-seg').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; range = +b.dataset.range; selDay = null; document.querySelectorAll('#range-seg button').forEach(x => x.setAttribute('aria-pressed', x === b)); renderStats(); });
   $('#btn-add').onclick = () => editFast(null);
-  $('#w-date').value = ymd(new Date());
-  $('#weight-form').addEventListener('submit', e => {
-    e.preventDefault();
-    const date = $('#w-date').value, kg = parseFloat(String($('#w-kg').value).replace(',', '.'));
-    if (!date || !(kg > 20 && kg < 400)) { toast('Escribe un peso válido en kg'); return; }
-    S.weights.filter(w => w.date === date).forEach(w => tomb(w.id)); S.weights = S.weights.filter(w => w.date !== date); S.weights.push({ id: uid(), date, kg: Math.round(kg * 10) / 10, u: now_() });
-    save(); $('#w-kg').value = ''; renderStats(); toast('Peso guardado');
-  });
   $('#theme-seg').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; S.theme = b.dataset.themeOpt; save(true); applyTheme(); render(); });
   $('#custom-h').addEventListener('change', e => { const v = Math.min(168, Math.max(1, +e.target.value || 16)); S.customH = v; S.plan = 'libre'; S.prefsU = now_(); save(); toast('Plan libre: ' + v + ' h'); });
   $('#btn-notif').onclick = async () => {
@@ -1017,7 +1201,7 @@ function bind() {
     navigator.clipboard?.writeText(txt).then(() => toast('Copia copiada al portapapeles'), () => { ta.select(); toast('Selecciona el texto y cópialo'); }) ?? (ta.select(), toast('Selecciona el texto y cópialo'));
   };
   $('#file-import').addEventListener('change', e => { const f = e.target.files[0]; if (!f) return; const r = new FileReader(); r.onload = () => importData(r.result); r.readAsText(f); e.target.value = ''; });
-  $('#btn-wipe').onclick = () => confirmBox('¿Borrar todos los datos?', 'Se eliminarán tu historial, el peso y los ajustes de este dispositivo. No se puede deshacer.', 'Borrar todo', () => { const t = S.theme, gone = [...S.fasts, ...S.weights].map(x => x.id), del = S.deleted; S = defaults(); S.seeded = true; S.theme = t; S.deleted = del; gone.forEach(tomb); S.curU = S.prefsU = now_(); save(); render(); toast('Datos borrados'); });
+  $('#btn-wipe').onclick = () => confirmBox('¿Borrar todos los datos?', 'Se eliminarán tu historial, el peso y los ajustes de este dispositivo. No se puede deshacer.', 'Borrar todo', () => { const t = S.theme, gone = [...S.fasts, ...S.weights].map(x => x.id), del = S.deleted; S = defaults(); S.seeded = true; S.theme = t; S.deleted = del; gone.forEach(tomb); S.curU = S.prefsU = S.wvaultU = now_(); save(); render(); Weight.lock(); toast('Datos borrados'); });
   $('#btn-sync-on').onclick = async () => {
     const key = $('#sync-key').value.trim(), bin = $('#sync-bin').value.trim(), err = $('#sync-err');
     if (!/^\$2[aby]\$\d\d\$.{20,}$/.test(key)) { err.textContent = 'Pega tu clave de JSONBin. Empieza por $2a$10$.'; return; }
@@ -1044,6 +1228,7 @@ load(); save(); applyTheme(); bind();
 let startTab = 'timer'; try { startTab = localStorage.getItem(KEY + '.tab') || 'timer'; } catch (e) {}
 if (location.hash && ['timer', 'stats', 'history', 'settings'].includes(location.hash.slice(1))) startTab = location.hash.slice(1);
 show(startTab);
+if (Weight.available()) Weight.render(); else $('#w-body').innerHTML = '<p class="muted">Tu navegador no permite el cifrado. Abre la app desde la web segura (https).</p>';
 Sync.run();
 setInterval(() => { if (view === 'timer' && !document.hidden) renderTimer(); else if (S.current && !S.current.notified && Date.now() - S.current.start >= S.current.goal * H) { S.current.notified = true; save(); notifyGoal(S.current); } }, 1000);
 if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) { navigator.serviceWorker.register('sw.js').catch(() => {}); }
