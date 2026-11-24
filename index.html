@@ -1062,7 +1062,12 @@ const Weight = (() => {
 // La clave vive solo en este dispositivo (otra entrada de localStorage) y nunca se exporta.
 const Sync = (() => {
   const CK = KEY + '.sync', API = 'https://api.jsonbin.io/v3/b';
-  let cfg = null, timer = null, busy = false, again = false, status = '', lastOk = 0, failed = false;
+  const DK = KEY + '.dirty';
+  let cfg = null, timer = null, verifyT = null, lastRun = 0, busy = false, again = false, status = '', lastOk = 0, failed = false;
+  // "dirty" = hay cambios locales que aún no se ha comprobado que estén en el bin. Se guarda en localStorage
+  // para que, si la app se cierra antes de subirlos, se suban en cuanto se vuelva a abrir.
+  let dirty = 0; try { dirty = +localStorage.getItem(DK) || 0; } catch (e) {}
+  const setDirty = v => { dirty = v; try { v ? localStorage.setItem(DK, String(v)) : localStorage.removeItem(DK); } catch (e) {} };
   try { cfg = JSON.parse(localStorage.getItem(CK) || 'null'); } catch (e) {}
   // Enlace de configuración: abrir la app con #k=CLAVE&b=BIN configura este dispositivo una vez, sin pedir nada.
   try {
@@ -1078,8 +1083,11 @@ const Sync = (() => {
   function payload() {
     const real = x => !x.demo;
     return { app: 'reloj-ayuno', v: 1, savedAt: new Date().toISOString(), plan: S.plan, customH: S.customH, prefsU: S.prefsU || 0,
-      current: S.current, curU: S.curU || 0, deleted: S.deleted || {}, fasts: S.fasts.filter(real), weights: S.wvault ? [] : S.weights.filter(real), wvault: S.wvault || null, wvaultU: S.wvaultU || 0 };
+      current: S.current, curU: S.curU || 0, deleted: S.deleted || {}, fasts: byId(S.fasts.filter(real)), weights: S.wvault ? [] : byId(S.weights.filter(real)), wvault: S.wvault || null, wvaultU: S.wvaultU || 0 };
   }
+  const byId = a => a.slice().sort((x, y) => x.id < y.id ? -1 : x.id > y.id ? 1 : 0);
+  // Comparación que no depende del orden de las claves ni de savedAt (evita subidas innecesarias en bucle).
+  const canon = v => Array.isArray(v) ? '[' + v.map(canon).join(',') + ']' : v && typeof v === 'object' ? '{' + Object.keys(v).filter(k => k !== 'savedAt' && v[k] !== undefined).sort().map(k => JSON.stringify(k) + ':' + canon(v[k])).join(',') + '}' : JSON.stringify(v === undefined ? null : v);
   function mergeList(a, b, del) {
     const m = new Map();
     for (const x of [...a, ...b]) { if (!x || !x.id) continue; const o = m.get(x.id); if (!o || (x.u || 0) > (o.u || 0)) m.set(x.id, x); }
@@ -1098,8 +1106,11 @@ const Sync = (() => {
     if ((r.curU || 0) > (S.curU || 0)) { S.current = r.current || null; S.curU = r.curU; }
     if ((r.prefsU || 0) > (S.prefsU || 0)) { S.plan = r.plan || S.plan; S.customH = +r.customH || S.customH; S.prefsU = r.prefsU; }
   }
-  async function req(method, url, body) {
-    const res = await fetch(url, { method, headers: Object.assign(hdr(!!body), method === 'GET' ? { 'X-Bin-Meta': 'false' } : {}), body: body ? JSON.stringify(body) : undefined, cache: 'no-store' });
+  async function req(method, url, body, keepalive) {
+    const data = body ? JSON.stringify(body) : undefined;
+    // keepalive deja terminar la petición aunque el móvil cierre o suspenda la app (límite ~64 KB).
+    const ka = !!keepalive && (!data || data.length < 60000);
+    const res = await fetch(url, { method, headers: Object.assign(hdr(!!body), method === 'GET' ? { 'X-Bin-Meta': 'false' } : {}), body: data, cache: 'no-store', keepalive: ka });
     if (!res.ok) {
       let msg = ''; try { msg = (await res.json()).message || ''; } catch (e) {}
       const e = new Error(res.status === 401 || res.status === 403 ? 'La clave no es válida o no tiene permiso para este bin.' : res.status === 404 ? 'No existe un bin con ese ID.' : res.status === 429 ? 'JSONBin ha limitado las peticiones. Se reintentará más tarde.' : (msg || 'Error ' + res.status));
@@ -1107,25 +1118,36 @@ const Sync = (() => {
     }
     return res.json();
   }
-  async function run() {
+  async function run(keepalive) {
     if (!on()) return;
+    clearTimeout(timer);
     if (busy) { again = true; return; }
+    if (!keepalive && !dirty && Date.now() - lastRun < 3000) return; // evita lecturas duplicadas (focus + visibilitychange)
+    lastRun = Date.now();
     if (!navigator.onLine) { status = 'Sin conexión. Se sincronizará al volver.'; ui(); return; }
     busy = true; status = 'Sincronizando…'; ui();
     try {
-      const remote = await req('GET', API + '/' + cfg.bin + '/latest');
+      const startDirty = dirty;
+      const remote = await req('GET', API + '/' + cfg.bin + '/latest', null, keepalive);
       const before = JSON.stringify(payload());
       merge(remote); save(true);
       const p = payload(); const changedLocal = JSON.stringify(p) !== before;
-      const rs = JSON.stringify(Object.assign({}, remote, { savedAt: 0 })), ls = JSON.stringify(Object.assign({}, p, { savedAt: 0 }));
-      if (rs !== ls) await req('PUT', API + '/' + cfg.bin, p);
-      lastOk = Date.now(); failed = false; status = 'Sincronizado a las ' + fmtT.format(lastOk);
+      const remoteFixed = Object.assign({}, remote, { fasts: byId(remote.fasts || []), weights: byId(remote.weights || []) });
+      if (canon(remoteFixed) !== canon(p)) {
+        await req('PUT', API + '/' + cfg.bin, p, keepalive);
+        // JSONBin no tiene escrituras condicionales: si otro móvil sube a la vez, puede pisar esta subida.
+        // Por eso los cambios quedan "pendientes" hasta que una lectura posterior confirme que están en el bin.
+        if (!dirty) setDirty(Date.now());
+        clearTimeout(verifyT); verifyT = setTimeout(() => run(), 5000);
+      } else if (dirty === startDirty) setDirty(0);
+      lastOk = Date.now(); failed = false; status = (dirty ? 'Subido a las ' : 'Sincronizado a las ') + fmtT.format(lastOk);
       if (changedLocal) render();
-    } catch (e) { failed = true; status = 'No se pudo sincronizar: ' + e.message; }
+    } catch (e) { failed = true; status = 'No se pudo sincronizar: ' + e.message; clearTimeout(verifyT); verifyT = setTimeout(() => run(), 30e3); }
     busy = false; ui();
-    if (again) { again = false; run(); }
+    if (again) { again = false; run(keepalive); }
   }
-  function schedule() { if (!on()) return; clearTimeout(timer); timer = setTimeout(run, 1200); }
+  // Cada cambio local se marca como pendiente y se sube casi al instante.
+  function schedule() { setDirty(Date.now()); if (!on()) return; ui(); clearTimeout(timer); timer = setTimeout(run, 300); }
   async function connect(ktype, key, bin) {
     cfg = { ktype, key: key.trim(), bin: bin.trim() };
     if (!cfg.bin) {
@@ -1138,7 +1160,7 @@ const Sync = (() => {
       catch (e) { cfg = null; throw e; }
     }
     try { localStorage.setItem(CK, JSON.stringify(cfg)); } catch (e) {}
-    await run();
+    setDirty(Date.now()); await run();
   }
   function disconnect() { cfg = null; try { localStorage.removeItem(CK); } catch (e) {} status = ''; ui(); }
   function ui() {
@@ -1148,12 +1170,19 @@ const Sync = (() => {
     badge.className = 'badge ' + (!on() ? 'no' : failed ? 'demo' : 'ok');
     if (on()) { $('#sync-bin-show').textContent = cfg.bin; $('#sync-status').textContent = status; }
     const dot = $('#sync-dot');
-    dot.className = 'sync-dot ' + (!on() ? '' : busy ? 'busy' : failed ? 'err' : lastOk ? 'ok' : '');
-    $('#sync-dot-t').textContent = !on() ? 'Sin sincronizar' : busy ? 'Sincronizando' : failed ? 'Sin conexión' : lastOk ? 'Conectado' : 'Conectando';
+    dot.className = 'sync-dot ' + (!on() ? '' : busy ? 'busy' : failed ? 'err' : dirty ? 'busy' : lastOk ? 'ok' : '');
+    $('#sync-dot-t').textContent = !on() ? 'Sin sincronizar' : busy ? 'Sincronizando' : failed ? (dirty ? 'Sin subir' : 'Sin conexión') : dirty ? 'Pendiente' : lastOk ? 'Sincronizado' : 'Conectando';
     dot.title = status;
   }
-  setInterval(() => { if (on() && !document.hidden) run(); }, 60e3);
+  // Con la app abierta, mira cada 20 s si el otro móvil ha cambiado algo.
+  setInterval(() => { if (on() && !document.hidden) run(); }, 20e3);
   window.addEventListener('online', () => run());
+  window.addEventListener('focus', () => run());
+  window.addEventListener('pageshow', e => { if (e.persisted) run(); });
+  // Al cerrar o mandar la app al fondo: si queda algo sin subir, se sube ya (con keepalive).
+  const flush = () => { if (on() && dirty) run(true); };
+  document.addEventListener('visibilitychange', () => { if (document.hidden) flush(); });
+  window.addEventListener('pagehide', flush);
   return { on, run, schedule, pull: run, connect, disconnect, ui, bin: () => cfg && cfg.bin };
 })();
 
@@ -1224,7 +1253,7 @@ function bind() {
   if (window.matchMedia('(display-mode: standalone)').matches) $('#install-card').hidden = true;
 }
 
-load(); save(); applyTheme(); bind();
+load(); save(true); applyTheme(); bind();
 let startTab = 'timer'; try { startTab = localStorage.getItem(KEY + '.tab') || 'timer'; } catch (e) {}
 if (location.hash && ['timer', 'stats', 'history', 'settings'].includes(location.hash.slice(1))) startTab = location.hash.slice(1);
 show(startTab);
